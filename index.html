@@ -1701,6 +1701,22 @@
     el.textContent = msg; el.classList.remove('hidden');
   }
 
+  // Supabase hata objelerinden okunabilir bir mesaj çıkarmaya çalışır.
+  // (Bazı hata objeleri message alanını "gizli" tutar, ekrana {} olarak düşer — bunu önlüyoruz)
+  function formatSbError(error) {
+    if(!error) return 'Bilinmeyen bir hata oluştu.';
+    const parts = [];
+    if(error.message) parts.push(error.message);
+    if(error.error_description) parts.push(error.error_description);
+    if(error.msg) parts.push(error.msg);
+    if(error.status) parts.push(`(kod: ${error.status})`);
+    if(error.code) parts.push(`(${error.code})`);
+    if(parts.length === 0) {
+      try { parts.push(JSON.stringify(error)); } catch(e) { parts.push(String(error)); }
+    }
+    return parts.join(' ');
+  }
+
   async function submitAuth() {
     const email = document.getElementById('authEmail').value.trim();
     const password = document.getElementById('authPassword').value;
@@ -1710,17 +1726,23 @@
     document.getElementById('authSubmitBtn').disabled = true;
     document.getElementById('authError').classList.add('hidden');
 
-    if(authMode === 'login') {
-      const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    try {
+      if(authMode === 'login') {
+        const { data, error } = await sb.auth.signInWithPassword({ email, password });
+        document.getElementById('authSubmitBtn').disabled = false;
+        if(error) { console.error('Giriş hatası (tam detay):', error); return showAuthError(error.message === 'Invalid login credentials' ? 'E-posta veya şifre hatalı.' : formatSbError(error)); }
+        await onAuthenticated(data.user);
+      } else {
+        const { data, error } = await sb.auth.signUp({ email, password });
+        document.getElementById('authSubmitBtn').disabled = false;
+        if(error) { console.error('Kayıt hatası (tam detay):', error); return showAuthError(formatSbError(error)); }
+        if(data.session) { await onAuthenticated(data.user); }
+        else { toast('Kayıt başarılı! E-postana gelen linke tıklayıp giriş yapabilirsin.'); setAuthTab('login'); }
+      }
+    } catch(e) {
       document.getElementById('authSubmitBtn').disabled = false;
-      if(error) return showAuthError(error.message === 'Invalid login credentials' ? 'E-posta veya şifre hatalı.' : error.message);
-      await onAuthenticated(data.user);
-    } else {
-      const { data, error } = await sb.auth.signUp({ email, password });
-      document.getElementById('authSubmitBtn').disabled = false;
-      if(error) return showAuthError(error.message);
-      if(data.session) { await onAuthenticated(data.user); }
-      else { toast('Kayıt başarılı! E-postana gelen linke tıklayıp giriş yapabilirsin.'); setAuthTab('login'); }
+      console.error('Beklenmeyen hata (tam detay):', e);
+      showAuthError('Bağlantı hatası: ' + formatSbError(e));
     }
   }
 
