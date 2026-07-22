@@ -146,9 +146,9 @@
 <body class="flex h-screen w-full">
 
 <!-- ── GİRİŞ / KAYIT EKRANI ── -->
-<div id="authScreen" class="fixed inset-0 z-[100] flex items-center justify-center bg-ink px-4">
-  <div class="w-full max-w-sm">
-    <div class="text-center mb-8">
+<div id="authScreen" class="fixed inset-0 z-[100] flex items-center justify-center bg-ink px-4 py-8 overflow-y-auto">
+  <div class="w-full max-w-sm my-auto">
+    <div class="text-center mb-6 sm:mb-8">
       <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-hot to-hotDim flex items-center justify-center mx-auto mb-4 shadow-2xl" style="box-shadow:0 0 40px rgba(57,255,138,0.35)">
         <svg class="w-8 h-8 text-ink" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 2v6m0 0l3-2m-3 2L9 6m3 12v4m0-4l3 2m-3-2l-3 2M4 8l4 2m-4-2l4-2m-4 2v8m16-8l-4 2m4-2l-4-2m4 2v8M8 10l4 2 4-2M8 14l4 2 4-2"></path></svg>
       </div>
@@ -163,14 +163,65 @@
       </div>
 
       <div id="authError" class="hidden text-xs text-rose bg-rose/10 border border-rose/30 rounded-lg p-2.5 mb-4"></div>
+      <div id="authSuccess" class="hidden text-xs text-mint bg-mint/10 border border-mint/30 rounded-lg p-2.5 mb-4"></div>
 
-      <div class="space-y-3">
+      <!-- NORMAL GİRİŞ/KAYIT FORMU -->
+      <div id="authFormNormal" class="space-y-3">
         <div><label class="text-xs font-semibold text-gray-400 mb-1 block">E-posta</label><input type="email" id="authEmail" class="field" placeholder="ornek@eposta.com" autocomplete="email"></div>
-        <div><label class="text-xs font-semibold text-gray-400 mb-1 block">Şifre</label><input type="password" id="authPassword" class="field" placeholder="En az 6 karakter" autocomplete="current-password"></div>
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-xs font-semibold text-gray-400 block">Şifre</label>
+            <span id="forgotPasswordLink" onclick="setAuthTab('forgot')" class="text-[11px] text-hot hover:underline cursor-pointer">Şifremi unuttum</span>
+          </div>
+          <input type="password" id="authPassword" class="field" placeholder="En az 6 karakter" autocomplete="current-password">
+        </div>
+
+        <div id="kvkkWrap" class="hidden flex items-start gap-2 pt-1">
+          <input type="checkbox" id="kvkkCheck" class="mt-0.5 rounded accent-[#39ff8a]">
+          <label for="kvkkCheck" class="text-[11px] text-gray-500 leading-snug cursor-pointer">
+            <span onclick="event.preventDefault(); openKvkkModal()" class="text-hot hover:underline cursor-pointer">Kişisel Verilerin Korunması Aydınlatma Metni</span>'ni okudum, verilerimin bu uygulama kapsamında işlenmesini kabul ediyorum.
+          </label>
+        </div>
+
         <button id="authSubmitBtn" onclick="submitAuth()" class="btn-primary w-full py-3 mt-2">Giriş Yap</button>
       </div>
+
+      <!-- ŞİFREMİ UNUTTUM FORMU -->
+      <div id="authFormForgot" class="hidden space-y-3">
+        <p class="text-xs text-gray-500 mb-1">E-posta adresine bir şifre sıfırlama linki göndereceğiz.</p>
+        <div><label class="text-xs font-semibold text-gray-400 mb-1 block">E-posta</label><input type="email" id="forgotEmail" class="field" placeholder="ornek@eposta.com"></div>
+        <button onclick="submitForgotPassword()" class="btn-primary w-full py-3 mt-1">Sıfırlama Linki Gönder</button>
+        <p onclick="setAuthTab('login')" class="text-center text-xs text-gray-500 hover:text-white cursor-pointer mt-2">← Girişe dön</p>
+      </div>
+
+      <!-- YENİ ŞİFRE BELİRLEME FORMU (linkten gelince) -->
+      <div id="authFormReset" class="hidden space-y-3">
+        <p class="text-xs text-gray-500 mb-1">Yeni şifreni belirle.</p>
+        <div><label class="text-xs font-semibold text-gray-400 mb-1 block">Yeni Şifre</label><input type="password" id="resetPassword" class="field" placeholder="En az 6 karakter"></div>
+        <button onclick="submitNewPassword()" class="btn-primary w-full py-3 mt-1">Şifreyi Güncelle</button>
+      </div>
+
       <p id="authHint" class="hidden text-[11px] text-gray-500 mt-3 text-center">Kayıt olduktan sonra e-postana gelen onay linkine tıklaman gerekebilir.</p>
     </div>
+  </div>
+</div>
+
+<!-- ── MODAL: KVKK AYDINLATMA METNİ ── -->
+<div id="kvkkModal" class="hidden fixed inset-0 z-[110] flex items-center justify-center p-4 modal-backdrop bg-black/80 opacity-0 transition-opacity duration-300">
+  <div class="card p-6 w-full max-w-lg max-h-[80vh] flex flex-col shadow-2xl transform scale-95 transition-transform duration-300" id="kvkkModalContent">
+    <div class="flex justify-between items-center mb-4 border-b border-line pb-4 shrink-0">
+      <h3 class="text-lg font-display font-bold text-white">Kişisel Verilerin Korunması Aydınlatma Metni</h3>
+      <button onclick="closeKvkkModal()" class="text-gray-400 hover:text-white text-lg">✕</button>
+    </div>
+    <div class="text-xs text-gray-400 leading-relaxed space-y-3 overflow-y-auto pr-2">
+      <p><strong class="text-gray-200">1. Veri Sorumlusu:</strong> PrintDefteri, kullanıcıların kayıt sırasında sağladığı e-posta adresi ile uygulama içinde oluşturdukları filament, yazıcı, tasarım, sipariş ve işletme bilgilerini işler.</p>
+      <p><strong class="text-gray-200">2. İşlenen Veriler:</strong> Hesap e-postan; girdiğin filament/yazıcı/tasarım kayıtları; oluşturduğun sipariş ve müşteri bilgileri; varsa fatura için girdiğin işletme bilgileri (ad, telefon, IBAN).</p>
+      <p><strong class="text-gray-200">3. İşleme Amacı:</strong> Bu veriler yalnızca sana hizmet sunmak (panel, hesaplama, fatura oluşturma, sipariş takibi) amacıyla işlenir. Verilerin her biri Supabase altyapısında, satır düzeyinde güvenlik (RLS) ile yalnızca senin hesabına bağlı olarak saklanır — başka bir kullanıcı hesabınla ilişkili veriyi göremez.</p>
+      <p><strong class="text-gray-200">4. Saklama:</strong> Veriler, hesabını silene veya kaydını kaldırana kadar bulutta saklanır. Ayarlar sayfasından tüm verilerini dilediğin zaman indirebilir veya kalıcı olarak silebilirsin.</p>
+      <p><strong class="text-gray-200">5. Üçüncü Taraflar:</strong> Verilerin saklandığı altyapı Supabase, e-posta gönderimi ise Resend üzerinden sağlanır. Bu servisler yalnızca teknik altyapı sağlayıcısıdır, verilerine kendi amaçları için erişmez.</p>
+      <p><strong class="text-gray-200">6. Haklarınız:</strong> Verilerinin bir kopyasını isteme, düzelttirme veya silinmesini talep etme hakkına sahipsin. Bu işlemleri Ayarlar sayfasından kendin yapabilir veya bizimle iletişime geçebilirsin.</p>
+    </div>
+    <button onclick="closeKvkkModal()" class="btn-primary w-full py-3 mt-4 shrink-0">Anladım, Kapat</button>
   </div>
 </div>
 
@@ -548,7 +599,7 @@
 </div>
 
 <!-- ── MODAL: SİPARİŞ DETAYI ── -->
-<div id="saleDetailModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop bg-black/80 opacity-0 transition-opacity duration-300">
+<div id="saleDetailModal" class="hidden fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 py-8 modal-backdrop bg-black/80 opacity-0 transition-opacity duration-300 overflow-y-auto">
   <div class="card p-0 w-full max-w-lg shadow-2xl transform scale-95 transition-transform duration-300 overflow-hidden" id="saleDetailModalContent">
     <div class="p-5 border-b border-line flex items-center justify-between bg-panel2">
       <div>
@@ -584,7 +635,7 @@
 </div>
 
 <!-- ── MODAL: FATURA/TEKLİF ── -->
-<div id="invoiceModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop bg-black/80 opacity-0 transition-opacity duration-300">
+<div id="invoiceModal" class="hidden fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 py-8 modal-backdrop bg-black/80 opacity-0 transition-opacity duration-300 overflow-y-auto">
   <div class="card p-6 w-full max-w-md shadow-2xl transform scale-95 transition-transform duration-300" id="invoiceModalContent">
     <div class="flex justify-between items-center mb-5 border-b border-line pb-4">
       <h3 class="text-lg font-display font-bold text-white">Fatura / Teklif Oluştur</h3>
@@ -604,7 +655,7 @@
 </div>
 
 <!-- ── MODAL: YENİ SATIŞ ── -->
-<div id="saleModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop bg-black/80 opacity-0 transition-opacity duration-300">
+<div id="saleModal" class="hidden fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 py-8 modal-backdrop bg-black/80 opacity-0 transition-opacity duration-300 overflow-y-auto">
   <div class="card p-6 w-full max-w-md shadow-2xl transform scale-95 transition-transform duration-300" id="saleModalContent">
     <div class="flex justify-between items-center mb-5 border-b border-line pb-4">
       <h3 class="text-lg font-display font-bold text-white">Sipariş Oluştur &amp; Stok Düşümü</h3>
@@ -1689,11 +1740,65 @@
   let authMode = 'login';
   function setAuthTab(mode) {
     authMode = mode;
+    document.getElementById('authError').classList.add('hidden');
+    document.getElementById('authSuccess').classList.add('hidden');
+
+    const isNormal = (mode === 'login' || mode === 'signup');
+    document.getElementById('authFormNormal').classList.toggle('hidden', !isNormal);
+    document.getElementById('authFormForgot').classList.toggle('hidden', mode !== 'forgot');
+    document.getElementById('authFormReset').classList.toggle('hidden', mode !== 'reset');
+
     document.getElementById('authTabLogin').classList.toggle('active', mode==='login');
     document.getElementById('authTabSignup').classList.toggle('active', mode==='signup');
-    document.getElementById('authSubmitBtn').textContent = mode==='login' ? 'Giriş Yap' : 'Kayıt Ol';
-    document.getElementById('authHint').classList.toggle('hidden', mode!=='signup');
+
+    if(isNormal) {
+      document.getElementById('authSubmitBtn').textContent = mode==='login' ? 'Giriş Yap' : 'Kayıt Ol';
+      document.getElementById('authHint').classList.toggle('hidden', mode!=='signup');
+      document.getElementById('kvkkWrap').classList.toggle('hidden', mode!=='signup');
+      document.getElementById('forgotPasswordLink').classList.toggle('hidden', mode!=='login');
+    }
+  }
+
+  function openKvkkModal() {
+    document.getElementById('kvkkModal').classList.remove('hidden');
+    requestAnimationFrame(()=>document.getElementById('kvkkModal').classList.remove('opacity-0'));
+  }
+  function closeKvkkModal() {
+    document.getElementById('kvkkModal').classList.add('opacity-0');
+    setTimeout(()=>document.getElementById('kvkkModal').classList.add('hidden'), 300);
+  }
+
+  async function submitForgotPassword() {
+    const email = document.getElementById('forgotEmail').value.trim();
+    if(!email) return showAuthError('E-posta adresi gerekli.');
     document.getElementById('authError').classList.add('hidden');
+    document.getElementById('authSuccess').classList.add('hidden');
+
+    const { error } = await sb.auth.resetPasswordForEmail(email, {
+      redirectTo: location.origin + location.pathname + '?reset=1'
+    });
+    if(error) { console.error('Şifre sıfırlama hatası:', error); return showAuthError(formatSbError(error)); }
+
+    const el = document.getElementById('authSuccess');
+    el.textContent = 'Şifre sıfırlama linki e-postana gönderildi. Gelen kutunu (ve gereksiz klasörünü) kontrol et.';
+    el.classList.remove('hidden');
+  }
+
+  async function submitNewPassword() {
+    const newPassword = document.getElementById('resetPassword').value;
+    if(!newPassword || newPassword.length < 6) return showAuthError('Şifre en az 6 karakter olmalı.');
+    document.getElementById('authError').classList.add('hidden');
+
+    const { error } = await sb.auth.updateUser({ password: newPassword });
+    if(error) { console.error('Şifre güncelleme hatası:', error); return showAuthError(formatSbError(error)); }
+
+    toast('Şifren güncellendi, giriş yapılıyor...');
+    const { data: { session } } = await sb.auth.getSession();
+    if(session?.user) {
+      document.getElementById('authScreen').style.display = 'none';
+      document.getElementById('welcomeScreen').classList.remove('hidden');
+      await onAuthenticated(session.user);
+    }
   }
 
   function showAuthError(msg) {
@@ -1722,6 +1827,7 @@
     const password = document.getElementById('authPassword').value;
     if(!email || !password) return showAuthError('E-posta ve şifre gerekli.');
     if(password.length < 6) return showAuthError('Şifre en az 6 karakter olmalı.');
+    if(authMode === 'signup' && !document.getElementById('kvkkCheck').checked) return showAuthError('Devam etmek için aydınlatma metnini onaylamalısın.');
 
     document.getElementById('authSubmitBtn').disabled = true;
     document.getElementById('authError').classList.add('hidden');
@@ -1782,6 +1888,24 @@
       } catch(e) { /* bozuk link */ }
       return;
     }
+
+    // Şifre sıfırlama linkinden gelindiyse Supabase otomatik bir oturum açar ve
+    // bu olayı tetikler — o durumda "yeni şifre belirle" formunu göstermemiz gerekiyor.
+    let recoveryHandled = false;
+    sb.auth.onAuthStateChange((event, session) => {
+      if(event === 'PASSWORD_RECOVERY') {
+        recoveryHandled = true;
+        document.getElementById('welcomeScreen')?.remove();
+        document.getElementById('authScreen').style.display = 'flex';
+        setAuthTab('reset');
+      }
+    });
+
+    // Kısa bir bekleme ile recovery olayının yakalanma şansı veriyoruz
+    if(urlParams.has('reset')) {
+      await new Promise(r => setTimeout(r, 400));
+    }
+    if(recoveryHandled) return;
 
     // Zaten oturum açık mı kontrol et (sayfa yenilendiğinde tekrar giriş istememek için)
     const { data: { session } } = await sb.auth.getSession();
