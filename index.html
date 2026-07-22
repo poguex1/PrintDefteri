@@ -1,0 +1,1775 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PrintDefteri | Üretim Yönetim Paneli</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          display: ['"Space Grotesk"', 'sans-serif'],
+          sans: ['Inter', 'sans-serif'],
+          mono: ['"JetBrains Mono"', 'monospace'],
+        },
+        colors: {
+          ink: '#0a0f0c',
+          panel: '#131a16',
+          panel2: '#19221d',
+          line: '#233028',
+          muted: '#8b9c93',
+          hot: '#39ff8a',
+          hotDim: '#1eb85f',
+          mint: '#39ff8a',
+          amber: '#ffb020',
+          rose: '#ff5470',
+          spool: '#4d8dff',
+        },
+        boxShadow: {
+          rim: '0 1px 0 0 rgba(255,255,255,0.03) inset',
+        }
+      }
+    }
+  }
+</script>
+
+<style>
+  * { scrollbar-color: #2b3830 transparent; }
+  body { font-family: 'Inter', sans-serif; background: #0a0f0c; color: #eaf5ee; overflow: hidden; }
+  .font-num { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #26332c; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #344339; }
+
+  :focus-visible { outline: 2px solid #39ff8a; outline-offset: 2px; border-radius: 4px; }
+
+  .field { background: #0e1512; border: 1px solid #24322a; color: #fff; font-weight: 500; font-size: 0.875rem; border-radius: 0.6rem; padding: 0.6rem 0.75rem; width: 100%; transition: border-color .15s, box-shadow .15s; }
+  .field::placeholder { color: #566259; }
+  .field:focus { border-color: #39ff8a; box-shadow: 0 0 0 3px rgba(57,255,138,0.14); }
+
+  .btn-primary { background: linear-gradient(180deg, #5dffa4, #39ff8a); color: #04150b; font-weight: 700; padding: 0.6rem 1.2rem; border-radius: 0.6rem; transition: all .15s; border: none; cursor: pointer; box-shadow: 0 1px 0 rgba(255,255,255,0.25) inset, 0 6px 18px rgba(57,255,138,0.22); }
+  .btn-primary:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-1px); }
+  .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; transform: none; }
+
+  .btn-mint { background: linear-gradient(180deg, #6ee7ff, #38bdf8); color: #04140c; font-weight: 700; padding: 0.6rem 1.2rem; border-radius: 0.6rem; transition: all .15s; cursor: pointer; border: none; box-shadow: 0 1px 0 rgba(255,255,255,0.25) inset, 0 6px 16px rgba(56,189,248,0.18); }
+  .btn-mint:hover { filter: brightness(1.06); transform: translateY(-1px); }
+
+  .btn-ghost { background: #131a16; border: 1px solid #24322a; color: #c3d1c9; font-weight: 600; padding: 0.6rem 1.1rem; border-radius: 0.6rem; transition: all .15s; cursor: pointer; }
+  .btn-ghost:hover { border-color: #344339; color: #fff; }
+
+  .nav-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.72rem 0.9rem; border-radius: 0.6rem; color: #7c9385; font-weight: 600; font-size: 0.875rem; transition: all .15s; cursor: pointer; margin-bottom: 0.3rem; position: relative; }
+  .nav-item:hover { background: #161e19; color: #fff; }
+  .nav-item.active { background: linear-gradient(90deg, rgba(57,255,138,0.12), rgba(57,255,138,0)); color: #fff; }
+  .nav-item.active::before { content:''; position:absolute; left:-0.75rem; top:0.2rem; bottom:0.2rem; width:3px; border-radius:2px; background: linear-gradient(180deg,#5dffa4,#39ff8a); box-shadow: 0 0 8px rgba(57,255,138,0.6); }
+
+  .data-table th { color: #6b7d72; font-weight: 600; text-transform: uppercase; font-size: 0.68rem; letter-spacing: .06em; padding: 0.9rem 1rem; text-align: left; border-bottom: 1px solid #1e2820; }
+  .data-table td { padding: 0.9rem 1rem; font-size: 0.875rem; border-bottom: 1px solid #161e19; vertical-align: middle; }
+  .data-table tbody tr { transition: background .12s; }
+  .data-table tbody tr:hover { background: #121a15; }
+
+  #sidebar { transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); }
+  .sidebar-closed { transform: translateX(-100%); position: absolute; z-index: 40; height: 100%; }
+  .sidebar-open { transform: translateX(0); position: relative; }
+
+  #sidebarOverlay { transition: opacity .25s ease; }
+
+  .glass-header { background: rgba(19,26,22,0.82); backdrop-filter: blur(14px); border-bottom: 1px solid #1e2820; }
+  .modal-backdrop { backdrop-filter: blur(6px); }
+  .progress-bar { transition: width .4s ease; }
+
+  .card { background: #131a16; border: 1px solid #1e2820; border-radius: 1rem; box-shadow: 0 1px 0 rgba(255,255,255,0.02) inset, 0 12px 24px -12px rgba(0,0,0,0.5); }
+
+  .dropzone-active { border-color: #39ff8a !important; background-color: rgba(57,255,138,0.06) !important; }
+
+  /* Signature: neon-gradient bar used across headers/CTAs */
+  .heat-rule { height: 3px; border-radius: 3px; background: linear-gradient(90deg, #39ff8a, #38bdf8 55%, transparent); box-shadow: 0 0 10px rgba(57,255,138,0.4); }
+
+  /* Toast */
+  #toastHost { position: fixed; bottom: 1.25rem; right: 1.25rem; z-index: 70; display: flex; flex-direction: column; gap: 0.6rem; }
+  .toast { display:flex; align-items:center; gap:0.6rem; background:#151d18; border:1px solid #24322a; color:#eaf5ee; font-size:0.82rem; font-weight:600; padding:0.75rem 1rem; border-radius:0.7rem; box-shadow:0 12px 24px -8px rgba(0,0,0,0.55); animation: toastIn .25s ease; max-width: 320px; }
+  .toast.ok { border-color: rgba(57,255,138,0.4); }
+  .toast.err { border-color: rgba(255,84,112,0.4); }
+  @keyframes toastIn { from { opacity:0; transform: translateY(8px);} to {opacity:1; transform:translateY(0);} }
+
+  .stat-icon { width: 3.1rem; height: 3.1rem; border-radius: 0.8rem; display:flex; align-items:center; justify-content:center; }
+
+  .range-btn.active { background: #39ff8a; color: #04150b; }
+
+  .tab-btn { padding: 0.45rem 0.9rem; border-radius: 0.5rem; font-size: 0.78rem; font-weight: 700; color: #7c9385; cursor: pointer; transition: all .15s; border: 1px solid transparent; }
+  .tab-btn:hover { color: #fff; }
+  .tab-btn.active { background: #19221d; color: #fff; border-color: #1e2820; }
+
+  .kbd { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; background: #19221d; border: 1px solid #24322a; border-radius: 0.3rem; padding: 0.05rem 0.35rem; color: #8b9c93; }
+
+  /* ── LIGHT TEMA ── */
+  body.light { background: #f4f5f7; color: #14171b; }
+  body.light .card { background: #ffffff; border-color: #e4e7eb; box-shadow: 0 1px 0 rgba(255,255,255,0.6) inset, 0 8px 20px -14px rgba(20,23,27,0.12); }
+  body.light #sidebar { background: #ffffff; border-color: #e4e7eb; }
+  body.light .glass-header { background: rgba(255,255,255,0.85); border-color: #e4e7eb; }
+  body.light .field { background: #f7f8fa; border-color: #dfe3e8; color: #14171b; }
+  body.light .field::placeholder { color: #9aa1ab; }
+  body.light .nav-item { color: #6b7280; }
+  body.light .nav-item:hover { background: #f1f2f4; color: #14171b; }
+  body.light .nav-item.active { color: #14171b; }
+  body.light .btn-ghost { background: #f1f2f4; border-color: #dfe3e8; color: #3a4048; }
+  body.light .btn-ghost:hover { color: #14171b; border-color: #c7cdd6; }
+  body.light .data-table th { color: #8b93a1; border-color: #eceef1; }
+  body.light .data-table td { border-color: #eceef1; }
+  body.light .data-table tbody tr:hover { background: #f7f8fa; }
+  body.light .bg-panel2, body.light .bg-ink { background: #f1f2f4 !important; }
+  body.light .text-white { color: #14171b !important; }
+  body.light .text-gray-300 { color: #3a4048 !important; }
+  body.light .text-gray-400 { color: #5a6270 !important; }
+  body.light .text-gray-500 { color: #7c8390 !important; }
+  body.light .text-gray-600 { color: #9aa1ab !important; }
+  body.light .border-line { border-color: #e4e7eb !important; }
+  body.light .tab-btn.active { background: #f1f2f4; color: #14171b; border-color: #e4e7eb; }
+  body.light .toast { background: #ffffff; border-color: #e4e7eb; color: #14171b; }
+  body.light ::-webkit-scrollbar-thumb { background: #d5d9de; }
+
+  .theme-toggle { width: 2.6rem; height: 1.5rem; border-radius: 999px; background: #272c32; position: relative; cursor: pointer; transition: background .2s; border: 1px solid #33383f; flex-shrink: 0; }
+  .theme-toggle::after { content:''; position:absolute; top:1px; left:1px; width: 1.15rem; height: 1.15rem; border-radius:50%; background: linear-gradient(180deg,#5dffa4,#39ff8a); transition: transform .2s; }
+  body.light .theme-toggle { background: #e4e7eb; }
+  body.light .theme-toggle::after { transform: translateX(1.1rem); background: #38bdf8; }
+</style>
+</head>
+<body class="flex h-screen w-full">
+
+<!-- ── GİRİŞ / KAYIT EKRANI ── -->
+<div id="authScreen" class="fixed inset-0 z-[100] flex items-center justify-center bg-ink px-4">
+  <div class="w-full max-w-sm">
+    <div class="text-center mb-8">
+      <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-hot to-hotDim flex items-center justify-center mx-auto mb-4 shadow-2xl" style="box-shadow:0 0 40px rgba(57,255,138,0.35)">
+        <svg class="w-8 h-8 text-ink" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 2v6m0 0l3-2m-3 2L9 6m3 12v4m0-4l3 2m-3-2l-3 2M4 8l4 2m-4-2l4-2m-4 2v8m16-8l-4 2m4-2l-4-2m4 2v8M8 10l4 2 4-2M8 14l4 2 4-2"></path></svg>
+      </div>
+      <h1 class="text-xl font-display font-bold text-white">PrintDefteri</h1>
+      <p class="text-xs text-gray-500 mt-1">Her hesap kendi verisini görür.</p>
+    </div>
+
+    <div class="card p-6">
+      <div class="flex items-center gap-1 bg-panel2 border border-line rounded-lg p-1 mb-5">
+        <button id="authTabLogin" onclick="setAuthTab('login')" class="tab-btn active flex-1 justify-center">Giriş Yap</button>
+        <button id="authTabSignup" onclick="setAuthTab('signup')" class="tab-btn flex-1 justify-center">Kayıt Ol</button>
+      </div>
+
+      <div id="authError" class="hidden text-xs text-rose bg-rose/10 border border-rose/30 rounded-lg p-2.5 mb-4"></div>
+
+      <div class="space-y-3">
+        <div><label class="text-xs font-semibold text-gray-400 mb-1 block">E-posta</label><input type="email" id="authEmail" class="field" placeholder="ornek@eposta.com" autocomplete="email"></div>
+        <div><label class="text-xs font-semibold text-gray-400 mb-1 block">Şifre</label><input type="password" id="authPassword" class="field" placeholder="En az 6 karakter" autocomplete="current-password"></div>
+        <button id="authSubmitBtn" onclick="submitAuth()" class="btn-primary w-full py-3 mt-2">Giriş Yap</button>
+      </div>
+      <p id="authHint" class="hidden text-[11px] text-gray-500 mt-3 text-center">Kayıt olduktan sonra e-postana gelen onay linkine tıklaman gerekebilir.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ── AÇILIŞ YÜKLEME EKRANI ── -->
+<div id="welcomeScreen" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-ink transition-opacity duration-500">
+  <div class="text-center px-6">
+    <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-hot to-hotDim flex items-center justify-center mx-auto mb-6 shadow-2xl" style="box-shadow:0 0 40px rgba(57,255,138,0.35)">
+      <svg class="w-10 h-10 text-ink" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 2v6m0 0l3-2m-3 2L9 6m3 12v4m0-4l3 2m-3-2l-3 2M4 8l4 2m-4-2l4-2m-4 2v8m16-8l-4 2m4-2l-4-2m4 2v8M8 10l4 2 4-2M8 14l4 2 4-2"></path></svg>
+    </div>
+    <h1 class="text-2xl font-display font-bold text-white mb-2">PrintDefteri'ne Hoş Geldin</h1>
+    <p id="welcomeSub" class="text-sm text-gray-500 font-mono">Atölye verileri yükleniyor...</p>
+    <div class="w-48 h-1 bg-panel2 rounded-full mx-auto mt-6 overflow-hidden">
+      <div id="welcomeBar" class="h-full bg-gradient-to-r from-hot to-hotDim rounded-full" style="width:0%; transition: width 0.4s ease; box-shadow:0 0 8px rgba(57,255,138,0.5)"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toastHost"></div>
+
+<!-- ── SIDEBAR OVERLAY (mobile) ── -->
+<div id="sidebarOverlay" onclick="toggleSidebar()" class="hidden fixed inset-0 bg-black/60 z-30"></div>
+
+<!-- ── SIDEBAR ── -->
+<aside id="sidebar" class="w-64 bg-panel border-r border-line flex flex-col sidebar-closed shrink-0">
+  <div class="p-5 flex items-center justify-between border-b border-line">
+    <h1 class="text-lg font-display font-bold text-white flex items-center gap-2">
+      <span class="w-8 h-8 rounded-lg bg-gradient-to-br from-hot to-hotDim flex items-center justify-center shrink-0">
+        <svg class="w-4.5 h-4.5 text-ink" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 2v6m0 0l3-2m-3 2L9 6m3 12v4m0-4l3 2m-3-2l-3 2M4 8l4 2m-4-2l4-2m-4 2v8m16-8l-4 2m4-2l-4-2m4 2v8M8 10l4 2 4-2M8 14l4 2 4-2"></path></svg>
+      </span>
+      PrintDefteri
+    </h1>
+    <button onclick="toggleSidebar()" class="md:hidden text-gray-400 hover:text-white text-xl leading-none">✕</button>
+  </div>
+
+  <nav class="flex-1 px-3 mt-4 overflow-y-auto">
+    <p class="text-[10px] font-bold uppercase tracking-widest text-gray-600 px-3 mb-2">Genel Bakış</p>
+    <div onclick="switchView('home')" id="nav-home" class="nav-item active"><svg class="w-4.5 h-4.5" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg> Ana Sayfa</div>
+
+    <p class="text-[10px] font-bold uppercase tracking-widest text-gray-600 px-3 mb-2 mt-5">Üretim</p>
+    <div onclick="switchView('calculator')" id="nav-calculator" class="nav-item"><svg class="w-4.5 h-4.5" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg> Hesaplayıcı</div>
+    <div onclick="switchView('inventory')" id="nav-inventory" class="nav-item"><svg class="w-4.5 h-4.5" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg> Depo &amp; Yazıcılar <span id="navBadgeInventory" class="hidden ml-auto text-[10px] bg-rose/20 text-rose font-bold px-1.5 py-0.5 rounded-full font-mono"></span></div>
+    <div onclick="switchView('library')" id="nav-library" class="nav-item"><svg class="w-4.5 h-4.5" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg> Kütüphane</div>
+    <div onclick="switchView('sales')" id="nav-sales" class="nav-item"><svg class="w-4.5 h-4.5" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Satışlar &amp; Üretim <span id="navBadgeSales" class="hidden ml-auto text-[10px] bg-amber/20 text-amber font-bold px-1.5 py-0.5 rounded-full font-mono"></span></div>
+    <div onclick="switchView('customers')" id="nav-customers" class="nav-item"><svg class="w-4.5 h-4.5" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg> Müşteriler</div>
+    <div onclick="switchView('analytics')" id="nav-analytics" class="nav-item"><svg class="w-4.5 h-4.5" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14"></path></svg> Analiz</div>
+
+    <p class="text-[10px] font-bold uppercase tracking-widest text-gray-600 px-3 mb-2 mt-5">Sistem</p>
+    <div onclick="switchView('account')" id="nav-account" class="nav-item"><svg class="w-4.5 h-4.5" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg> Ayarlar &amp; Yedek</div>
+  </nav>
+
+  <div class="p-4 border-t border-line">
+    <div class="heat-rule mb-3"></div>
+    <p class="text-[10px] text-gray-600 font-mono">v2.0 · yerel depolama</p>
+  </div>
+</aside>
+
+<!-- ── MAIN CONTENT ── -->
+<div class="flex-1 flex flex-col h-screen overflow-hidden">
+
+  <header class="glass-header w-full px-5 sm:px-6 py-4 flex items-center justify-between z-10 sticky top-0">
+    <div class="flex items-center gap-4">
+      <button onclick="toggleSidebar()" class="text-gray-400 hover:text-white transition-colors"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg></button>
+      <div>
+        <h2 id="topTitle" class="text-base sm:text-lg font-display font-bold text-white tracking-wide">Ana Sayfa</h2>
+        <p class="text-[11px] text-gray-500 font-medium hidden sm:block">Üretim ve satış kontrol merkezi</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <div id="clockBadge" class="hidden sm:flex items-center gap-2 text-xs font-mono text-gray-500 bg-panel2 border border-line px-3 py-1.5 rounded-lg"></div>
+
+      <div class="relative">
+        <button onclick="toggleNotifPanel()" class="w-10 h-10 rounded-full bg-panel2 border border-line flex items-center justify-center text-gray-400 hover:text-white hover:border-hot/40 transition-all relative">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+          <span id="notifDot" class="hidden absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose" style="box-shadow:0 0 6px rgba(255,84,112,0.7)"></span>
+        </button>
+        <div id="notifPanel" class="hidden absolute right-0 mt-2 w-80 card p-0 overflow-hidden shadow-2xl z-40">
+          <div class="p-3 border-b border-line flex items-center justify-between">
+            <span class="text-sm font-bold text-white">Bildirimler</span>
+            <button onclick="clearNotifs()" class="text-[11px] text-gray-500 hover:text-hot font-semibold">Tümünü Temizle</button>
+          </div>
+          <div id="notifList" class="max-h-80 overflow-y-auto divide-y divide-line"></div>
+        </div>
+      </div>
+
+      <div onclick="toggleTheme()" class="theme-toggle" title="Tema değiştir"></div>
+      <button id="headerAvatar" onclick="switchView('account')" class="w-10 h-10 rounded-full bg-gradient-to-tr from-hot to-hotDim flex items-center justify-center font-display font-bold text-sm text-ink shadow-lg border border-white/10 hover:ring-4 hover:ring-hot/25 transition-all">?</button>
+    </div>
+  </header>
+
+  <main class="flex-1 overflow-y-auto p-5 sm:p-6 lg:p-10 relative">
+    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-64 bg-hot opacity-[0.06] blur-[130px] pointer-events-none rounded-full"></div>
+
+    <!-- 1: ANA SAYFA -->
+    <div id="view-home" class="max-w-6xl mx-auto space-y-6 relative">
+      <div class="py-6">
+        <p class="text-hot font-mono text-xs font-bold tracking-widest uppercase mb-3">Üretim Panosu</p>
+        <h1 class="text-3xl sm:text-4xl font-display font-bold text-white mb-3 leading-tight">Atölyeni tek ekrandan yönet.</h1>
+        <p class="text-gray-400 text-base max-w-2xl mb-6">Stoklarını takip et, makine bakımlarını izle, sipariş durumlarını güncelle ve kâr marjını büyüt.</p>
+        <button onclick="switchView('calculator')" class="btn-primary flex items-center gap-2.5">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg> Yeni Hesaplama
+        </button>
+      </div>
+
+      <!-- YENİ: Uyarı bandı (düşük stok / bakım) -->
+      <div id="alertBanner" class="hidden"></div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="card p-5 flex items-center gap-4">
+          <div class="stat-icon bg-hot/10 text-hot"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
+          <div><p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Toplam Ciro</p><p id="home-total-sales" class="text-xl font-num font-bold text-white mt-1">₺0,00</p></div>
+        </div>
+        <div class="card p-5 flex items-center gap-4">
+          <div class="stat-icon bg-mint/10 text-mint"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg></div>
+          <div><p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Net Kâr</p><p id="home-total-profit" class="text-xl font-num font-bold text-white mt-1">₺0,00</p></div>
+        </div>
+        <div class="card p-5 flex items-center gap-4">
+          <div class="stat-icon bg-spool/10 text-spool"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg></div>
+          <div><p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Kayıtlı Müşteri</p><p id="home-total-customers" class="text-xl font-num font-bold text-white mt-1">0 Kişi</p></div>
+        </div>
+        <div class="card p-5 flex items-center gap-4">
+          <div class="stat-icon bg-amber/10 text-amber"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14"></path></svg></div>
+          <div><p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Ort. Kâr Marjı</p><p id="home-avg-margin" class="text-xl font-num font-bold text-white mt-1">%0</p></div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="card p-6 lg:col-span-2">
+          <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <h3 class="text-base font-display font-bold text-white flex items-center gap-2">
+              <svg class="w-5 h-5 text-hot" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
+              Ciro Trendi
+            </h3>
+            <div class="flex items-center gap-1 bg-panel2 border border-line rounded-lg p-1">
+              <button onclick="setTrendRange(7)" id="rangeBtn-7" class="range-btn px-2.5 py-1 text-xs font-semibold rounded-md text-gray-400">7 Gün</button>
+              <button onclick="setTrendRange(30)" id="rangeBtn-30" class="range-btn px-2.5 py-1 text-xs font-semibold rounded-md text-gray-400">30 Gün</button>
+              <button onclick="setTrendRange(0)" id="rangeBtn-0" class="range-btn px-2.5 py-1 text-xs font-semibold rounded-md text-gray-400">Tümü</button>
+            </div>
+          </div>
+          <div class="relative h-[250px] w-full"><canvas id="lineChart"></canvas></div>
+        </div>
+
+        <div class="card p-6 flex flex-col">
+          <h3 class="text-base font-display font-bold text-white mb-4 flex items-center gap-2">
+            <svg class="w-5 h-5 text-amber" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path></svg>
+            En Çok Satanlar
+          </h3>
+          <div id="topDesignsList" class="space-y-3 flex-1"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2: HESAPLAYICI -->
+    <div id="view-calculator" class="max-w-7xl mx-auto space-y-6 hidden">
+      <div class="grid grid-cols-12 gap-6">
+
+        <div class="col-span-12 lg:col-span-7 card p-6 flex flex-col">
+          <div id="dropZone" class="border-2 border-dashed border-line rounded-xl flex-1 flex flex-col items-center justify-center text-center cursor-pointer p-8 min-h-[250px] transition-all hover:border-hot hover:bg-hot/5">
+            <img id="thumbnailImg" class="max-w-full max-h-[250px] object-contain hidden mb-4 rounded" alt="Önizleme" />
+            <div id="uploadPrompt">
+              <div class="w-16 h-16 bg-panel2 rounded-full flex items-center justify-center mx-auto mb-4 text-hot"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg></div>
+              <p class="text-base font-bold text-gray-200">G-Code Dosyasını Buraya Sürükle</p>
+              <p class="text-xs text-gray-500 mt-2">veya seçmek için tıkla (manuel de girebilirsin)</p>
+            </div>
+            <input type="file" id="fileInput" accept=".gcode" class="hidden">
+          </div>
+          <p id="viewerStatus" class="text-xs font-semibold text-hot mt-4 text-center font-mono"></p>
+        </div>
+
+        <div class="col-span-12 lg:col-span-5 card p-6">
+          <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-5 border-b border-line pb-3">Akıllı Parametreler</h3>
+
+          <div class="grid grid-cols-2 gap-5 mb-5">
+            <div class="col-span-2 sm:col-span-1"><label class="text-xs font-bold text-hot mb-1.5 block">Ağırlık (g)</label><input type="text" id="inpManualWeight" class="field border-hot/30 bg-hot/5" placeholder="Örn: 25.2"></div>
+            <div class="col-span-2 sm:col-span-1"><label class="text-xs font-bold text-hot mb-1.5 block">Süre (Dk)</label><input type="text" id="inpManualTime" class="field border-hot/30 bg-hot/5" placeholder="Örn: 120"></div>
+
+            <div class="col-span-2"><label class="text-xs font-semibold text-gray-400 mb-1.5 block">Ana Filament (Depodan)</label><select id="calcFilamentSelect" class="field"></select></div>
+            <div class="col-span-2"><label class="text-xs font-semibold text-gray-400 mb-1.5 block">Kullanılacak Makine</label><select id="calcPrinterSelect" class="field"></select></div>
+
+            <div class="col-span-2 flex items-center justify-between mt-1">
+              <label class="text-xs font-semibold text-spool flex items-center gap-1.5 cursor-pointer select-none">
+                <input type="checkbox" id="chkSecondFil" class="rounded accent-[#4d8dff]"> İkinci renk/malzeme ekle (çok renkli baskı)
+              </label>
+            </div>
+            <div id="secondFilRow" class="col-span-2 grid grid-cols-2 gap-3 hidden">
+              <div><label class="text-xs text-gray-400 mb-1 block">2. Filament</label><select id="calcFilamentSelect2" class="field"></select></div>
+              <div><label class="text-xs text-gray-400 mb-1 block">2. Filament Ağırlık (g)</label><input type="text" id="inpManualWeight2" class="field" placeholder="Örn: 8"></div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-5 border-t border-line pt-5">
+            <div><label class="text-xs font-semibold text-gray-400 mb-1.5 block">Elektrik (₺/kWh)</label><input type="number" id="inpElec" class="field" placeholder="3.50"></div>
+            <div><label class="text-xs font-semibold text-gray-400 mb-1.5 block">İşçilik (₺/sa)</label><input type="number" id="inpLabor" class="field" placeholder="100"></div>
+            <div><label class="text-xs font-semibold text-gray-400 mb-1.5 block">Son İşlem (Dk)</label><input type="number" id="inpPostTime" class="field" placeholder="15"></div>
+            <div><label class="text-xs font-semibold text-gray-400 mb-1.5 block">Hata Payı (%)</label><input type="number" id="inpFailure" class="field" placeholder="10"></div>
+            <div class="col-span-2"><label class="text-xs font-semibold text-mint mb-1.5 block">Hedef Kâr Marjı (%)</label><input type="number" id="inpProfit" class="field border-mint/30 bg-mint/5 text-mint font-bold" placeholder="60"></div>
+          </div>
+        </div>
+
+        <div class="col-span-12 lg:col-span-8 card p-6">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+            <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Maliyet Kırılımı</h3>
+            <div class="flex items-center gap-2 w-full sm:w-auto">
+              <input type="text" id="inpProjectName" class="field !py-2 sm:w-64" placeholder="Tasarım Adı (Örn: Vazo)">
+              <button id="btnSaveDesign" class="btn-primary flex items-center gap-2 whitespace-nowrap" disabled><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg> Kaydet</button>
+            </div>
+          </div>
+          <table class="w-full text-sm font-num">
+            <tbody>
+              <tr class="border-b border-line"><td class="py-2 text-gray-400 font-sans">Malzeme Maliyeti</td><td id="tdMat" class="py-2 text-right font-medium">₺0,00</td></tr>
+              <tr class="border-b border-line"><td class="py-2 text-gray-400 font-sans">Elektrik Tüketimi</td><td id="tdElec" class="py-2 text-right font-medium">₺0,00</td></tr>
+              <tr class="border-b border-line"><td class="py-2 text-gray-400 font-sans">Amortisman &amp; İşçilik</td><td id="tdLaborWear" class="py-2 text-right font-medium">₺0,00</td></tr>
+              <tr class="border-b border-line"><td class="py-2 text-gray-300 font-semibold font-sans">Net Maliyet (Risk Dahil)</td><td id="tdBase" class="py-2 text-right font-bold text-white">₺0,00</td></tr>
+              <tr><td class="pt-4 text-hot font-bold text-lg font-sans">ÖNERİLEN SATIŞ</td><td id="tdFinal" class="pt-4 text-right font-extrabold text-3xl text-hot">₺0,00</td></tr>
+            </tbody>
+          </table>
+          <p class="text-xs text-gray-500 mt-2 text-right font-sans">*Kâr (%<span id="lblProfit">0</span>): <span id="tdProfitStr" class="font-num">₺0,00</span></p>
+        </div>
+        <div class="col-span-12 lg:col-span-4 card p-6 flex flex-col"><h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Dağılım</h3><div class="flex-1 relative min-h-[220px]"><canvas id="pieChart"></canvas></div></div>
+      </div>
+    </div>
+
+    <!-- 3: DEPO VE YAZICILAR -->
+    <div id="view-inventory" class="max-w-7xl mx-auto space-y-8 hidden">
+      <header>
+        <h2 class="text-2xl font-display font-bold text-white">Depo ve Envanter Yönetimi</h2>
+        <p class="text-sm text-gray-500 mt-1">Filament stoklarınızı ve makinelerinizi buradan kaydedin. Hesaplamalar bu verilerden beslenir.</p>
+      </header>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div class="card p-6">
+          <h3 class="text-base font-display font-bold text-white mb-4 flex items-center gap-2"><div class="w-2.5 h-2.5 rounded-full bg-hot"></div> Filament Stokları</h3>
+          <div class="grid grid-cols-2 gap-3 mb-6 bg-panel2 p-4 rounded-xl border border-line">
+            <input type="text" id="invFilName" class="field col-span-2" placeholder="Marka/Renk (Örn: Esun Siyah PLA)">
+            <div><label class="text-xs text-gray-400">Başlangıç (g)</label><input type="number" id="invFilWeight" class="field" placeholder="1000"></div>
+            <div><label class="text-xs text-gray-400">Makara Fiyatı (₺)</label><input type="number" id="invFilPrice" class="field" placeholder="750"></div>
+            <button onclick="addFilament()" class="btn-primary col-span-2 mt-2">Stoka Ekle</button>
+          </div>
+          <div class="overflow-y-auto max-h-[400px]">
+            <table class="w-full text-sm"><tbody id="filamentList"></tbody></table>
+            <p id="filamentEmpty" class="hidden text-center text-sm font-medium text-gray-600 py-10">Henüz filament eklenmedi.</p>
+          </div>
+        </div>
+
+        <div class="card p-6">
+          <h3 class="text-base font-display font-bold text-white mb-4 flex items-center gap-2"><div class="w-2.5 h-2.5 rounded-full bg-mint"></div> Yazıcı Garajı (Bakım Takibi)</h3>
+          <div class="grid grid-cols-2 gap-3 mb-6 bg-panel2 p-4 rounded-xl border border-line">
+            <input type="text" id="invPrinName" class="field col-span-2" placeholder="Makine Adı (Örn: Bambu P1S)">
+            <div><label class="text-xs text-gray-400">Güç Tüketimi (Watt)</label><input type="number" id="invPrinPower" class="field" placeholder="300"></div>
+            <div><label class="text-xs text-gray-400">Amortisman (₺/Saat)</label><input type="number" id="invPrinWear" class="field" placeholder="5"></div>
+            <button onclick="addPrinter()" class="btn-mint col-span-2 mt-2">Makineyi Kaydet</button>
+          </div>
+          <div class="overflow-y-auto max-h-[400px]">
+            <table class="w-full text-sm"><tbody id="printerList"></tbody></table>
+            <p id="printerEmpty" class="hidden text-center text-sm font-medium text-gray-600 py-10">Henüz makine eklenmedi.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4: KÜTÜPHANE -->
+    <div id="view-library" class="max-w-7xl mx-auto space-y-4 hidden">
+      <header class="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+        <div><h2 class="text-2xl font-display font-bold text-white">Tasarım Kütüphanesi</h2><p class="text-sm text-gray-500 mt-1">Kaydettiğin tüm tasarımlar ve maliyetleri.</p></div>
+        <input type="text" id="librarySearch" oninput="renderLibrary()" class="field sm:w-64" placeholder="Tasarım ara...">
+      </header>
+      <div class="card overflow-hidden">
+        <table class="w-full data-table">
+          <thead class="bg-panel2"><tr><th class="w-16 text-center">Görsel</th><th>Tasarım</th><th>Maliyet</th><th>Önerilen</th><th class="text-right">İşlem</th></tr></thead>
+          <tbody id="libraryBody"></tbody>
+        </table>
+        <p id="libraryEmpty" class="text-center text-sm font-medium text-gray-600 py-16">Henüz tasarım yok — Hesaplayıcı'dan ilk tasarımını kaydet.</p>
+      </div>
+    </div>
+
+    <!-- 5: SATIŞLAR VE CRM -->
+    <div id="view-sales" class="max-w-7xl mx-auto space-y-4 hidden">
+      <header class="flex flex-col sm:flex-row justify-between sm:items-end gap-3">
+        <div><h2 class="text-2xl font-display font-bold text-white">Satışlar ve Üretim Bandı</h2><p class="text-sm text-gray-500 mt-1">Durum etiketlerine tıklayarak siparişi güncelleyebilirsiniz.</p></div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <input type="text" id="salesSearch" oninput="renderSales()" class="field sm:w-48" placeholder="Müşteri/ürün ara...">
+          <button onclick="exportSalesCSV()" class="btn-ghost flex items-center gap-2 whitespace-nowrap"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg> CSV</button>
+          <button onclick="openSaleModal()" class="btn-mint flex items-center gap-2 whitespace-nowrap"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg> Yeni Sipariş</button>
+        </div>
+      </header>
+
+      <div class="flex items-center gap-1 flex-wrap">
+        <div class="tab-btn active" data-status="all" onclick="setSalesTab('all', this)">Tümü</div>
+        <div class="tab-btn" data-status="Bekliyor" onclick="setSalesTab('Bekliyor', this)">Bekliyor</div>
+        <div class="tab-btn" data-status="Basılıyor" onclick="setSalesTab('Basılıyor', this)">Basılıyor</div>
+        <div class="tab-btn" data-status="Tamamlandı" onclick="setSalesTab('Tamamlandı', this)">Tamamlandı</div>
+      </div>
+
+      <div class="card overflow-hidden">
+        <table class="w-full data-table">
+          <thead class="bg-panel2"><tr><th>Tarih</th><th>Müşteri</th><th>Ürün</th><th>Teslim</th><th>Durum</th><th>Satış</th><th class="text-mint">Kâr</th><th class="text-right">İşlem</th></tr></thead>
+          <tbody id="salesBody"></tbody>
+        </table>
+        <p id="salesEmpty" class="text-center text-sm font-medium text-gray-600 py-16">Sipariş bulunamadı.</p>
+      </div>
+    </div>
+
+    <!-- 6: MÜŞTERİLER (CRM) -->
+    <div id="view-customers" class="max-w-7xl mx-auto space-y-4 hidden">
+      <header class="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+        <div><h2 class="text-2xl font-display font-bold text-white">Müşteri Geçmişi</h2><p class="text-sm text-gray-500 mt-1">Müşteri bazlı sipariş toplamları ve geçmiş.</p></div>
+        <input type="text" id="customerSearch" oninput="renderCustomers()" class="field sm:w-64" placeholder="Müşteri ara...">
+      </header>
+      <div id="customersGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+      <p id="customersEmpty" class="hidden text-center text-sm font-medium text-gray-600 py-16 card">Henüz müşteri kaydı yok — bir sipariş oluşturduğunda burada görünecek.</p>
+    </div>
+
+    <!-- 7: ANALİZ -->
+    <div id="view-analytics" class="max-w-7xl mx-auto space-y-6 hidden">
+      <header><h2 class="text-2xl font-display font-bold text-white">Derinlemesine Analiz</h2><p class="text-sm text-gray-500 mt-1">Filament ve makine bazında kârlılık ve verimlilik.</p></header>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="card p-6">
+          <h3 class="text-base font-display font-bold text-white mb-4 flex items-center gap-2"><div class="w-2.5 h-2.5 rounded-full bg-hot"></div> Filament Bazında Kâr</h3>
+          <div id="filamentAnalytics" class="space-y-3"></div>
+          <p id="filamentAnalyticsEmpty" class="hidden text-center text-sm text-gray-600 py-10">Henüz veri yok.</p>
+        </div>
+        <div class="card p-6">
+          <h3 class="text-base font-display font-bold text-white mb-4 flex items-center gap-2"><div class="w-2.5 h-2.5 rounded-full bg-spool"></div> Makine Verimliliği</h3>
+          <div id="printerAnalytics" class="space-y-3"></div>
+          <p id="printerAnalyticsEmpty" class="hidden text-center text-sm text-gray-600 py-10">Henüz veri yok.</p>
+        </div>
+      </div>
+
+      <div class="card p-6">
+        <h3 class="text-base font-display font-bold text-white mb-4 flex items-center gap-2"><div class="w-2.5 h-2.5 rounded-full bg-mint"></div> Saatlik Kazanç Özeti</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="bg-panel2 rounded-xl p-4 border border-line"><p class="text-xs text-gray-500 uppercase font-semibold">Toplam Baskı Saati</p><p id="an-total-hours" class="text-xl font-num font-bold text-white mt-1">0 sa</p></div>
+          <div class="bg-panel2 rounded-xl p-4 border border-line"><p class="text-xs text-gray-500 uppercase font-semibold">Saat Başı Ort. Kâr</p><p id="an-profit-per-hour" class="text-xl font-num font-bold text-mint mt-1">₺0,00</p></div>
+          <div class="bg-panel2 rounded-xl p-4 border border-line"><p class="text-xs text-gray-500 uppercase font-semibold">En Kârlı Tasarım</p><p id="an-best-design" class="text-base font-bold text-hot mt-1 truncate">-</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 8: HESABIM (YEDEKLEME) -->
+    <div id="view-account" class="max-w-3xl mx-auto space-y-6 hidden">
+      <header><h2 class="text-2xl font-display font-bold text-white">Ayarlar ve Veri Güvenliği</h2></header>
+      <div class="card p-8 text-center">
+        <div id="acctAvatar" class="w-24 h-24 rounded-full bg-gradient-to-tr from-hot to-hotDim flex items-center justify-center font-display font-bold text-3xl text-ink mx-auto mb-4 border-4 border-panel2">?</div>
+        <h3 id="acctEmail" class="text-xl font-display font-bold text-white">-</h3><p class="text-gray-500 mt-1">PrintDefteri Hesabı</p>
+        <button onclick="signOut()" class="btn-ghost mt-4 text-rose border-rose/30 hover:border-rose/50">Çıkış Yap</button>
+
+        <div class="mt-8 border-t border-line pt-8 text-left">
+          <span class="font-bold text-white block mb-3">Fatura/Teklif Bilgileri</span>
+          <p class="text-xs text-gray-500 mb-4">Bu bilgiler oluşturduğun PDF fatura/tekliflerin üst kısmında görünür.</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <input type="text" id="bizName" class="field" placeholder="İşletme / Marka Adı">
+            <input type="text" id="bizPhone" class="field" placeholder="Telefon">
+            <input type="text" id="bizEmail" class="field" placeholder="E-posta">
+            <input type="text" id="bizIban" class="field" placeholder="IBAN (opsiyonel)">
+            <textarea id="bizAddress" class="field sm:col-span-2" placeholder="Adres / Not (opsiyonel)" rows="2"></textarea>
+          </div>
+          <button onclick="saveBizInfo()" class="btn-ghost mt-3 w-full sm:w-auto">Bilgileri Kaydet</button>
+        </div>
+
+        <div class="mt-8 border-t border-line pt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="col-span-1 sm:col-span-2 mb-4 text-sm text-gray-400 text-left bg-panel2 p-4 rounded-xl border border-line">
+            <span class="font-bold text-white block mb-2">Veri Yedekleme Sistemi</span>
+            Verilerin artık hesabına bağlı olarak bulutta güvenle saklanıyor. Yine de ekstra güvenlik için ara sıra bir yedek indirmeni öneririz.
+          </div>
+          <button onclick="exportBackup()" class="btn-primary flex items-center justify-center gap-2 py-3"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg> Tüm Sistemi İndir (.json)</button>
+          <label class="btn-mint flex items-center justify-center gap-2 py-3 cursor-pointer"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg> Yedekten Yükle <input type="file" id="importFile" accept=".json" class="hidden" onchange="importBackup(event)"></label>
+        </div>
+        <div class="mt-8 border-t border-line pt-6">
+           <button id="btnFactoryReset" class="text-xs text-rose hover:text-rose/80 underline underline-offset-2">Fabrika Ayarlarına Dön (Her Şeyi Sil)</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── MODAL: SİPARİŞ DETAYI ── -->
+<div id="saleDetailModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop bg-black/80 opacity-0 transition-opacity duration-300">
+  <div class="card p-0 w-full max-w-lg shadow-2xl transform scale-95 transition-transform duration-300 overflow-hidden" id="saleDetailModalContent">
+    <div class="p-5 border-b border-line flex items-center justify-between bg-panel2">
+      <div>
+        <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Sipariş Detayı</p>
+        <h3 id="sdName" class="text-lg font-display font-bold text-white"></h3>
+      </div>
+      <button onclick="closeSaleDetail()" class="text-gray-400 hover:text-white text-lg">✕</button>
+    </div>
+    <div class="p-5 space-y-4">
+      <div id="sdStatusBig" class="flex items-center gap-2"></div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-panel2 rounded-xl p-3.5 border border-line"><p class="text-[10px] text-gray-500 uppercase font-semibold mb-1">Müşteri</p><p id="sdCust" class="font-bold text-white text-sm"></p></div>
+        <div class="bg-panel2 rounded-xl p-3.5 border border-line"><p class="text-[10px] text-gray-500 uppercase font-semibold mb-1">Sipariş Tarihi</p><p id="sdDate" class="font-bold text-white text-sm font-num"></p></div>
+        <div class="bg-panel2 rounded-xl p-3.5 border border-line"><p class="text-[10px] text-gray-500 uppercase font-semibold mb-1">Teslim Tarihi</p><p id="sdDue" class="font-bold text-sm font-num"></p></div>
+        <div class="bg-panel2 rounded-xl p-3.5 border border-line"><p class="text-[10px] text-gray-500 uppercase font-semibold mb-1">Maliyet</p><p id="sdCost" class="font-bold text-white text-sm font-num"></p></div>
+        <div class="bg-panel2 rounded-xl p-3.5 border border-line"><p class="text-[10px] text-gray-500 uppercase font-semibold mb-1">Satış Fiyatı</p><p id="sdPrice" class="font-extrabold text-white text-base font-num"></p></div>
+        <div class="bg-panel2 rounded-xl p-3.5 border border-line"><p class="text-[10px] text-gray-500 uppercase font-semibold mb-1">Kâr</p><p id="sdProfit" class="font-extrabold text-mint text-base font-num"></p></div>
+      </div>
+
+      <div id="sdNoteWrap" class="hidden bg-panel2 rounded-xl p-3.5 border border-line">
+        <p class="text-[10px] text-gray-500 uppercase font-semibold mb-1">Sipariş Notu</p>
+        <p id="sdNote" class="text-sm text-gray-300"></p>
+      </div>
+
+      <div class="flex items-center gap-2 pt-2 border-t border-line">
+        <button id="sdBtnInvoice" class="btn-primary flex-1 flex items-center justify-center gap-2 text-sm">🧾 Fatura/Teklif</button>
+        <button id="sdBtnTrack" class="btn-ghost flex-1 flex items-center justify-center gap-2 text-sm">🔗 Takip Linki</button>
+        <button id="sdBtnDelete" class="text-rose hover:text-rose/80 text-sm font-semibold px-3">Sil</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: FATURA/TEKLİF ── -->
+<div id="invoiceModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop bg-black/80 opacity-0 transition-opacity duration-300">
+  <div class="card p-6 w-full max-w-md shadow-2xl transform scale-95 transition-transform duration-300" id="invoiceModalContent">
+    <div class="flex justify-between items-center mb-5 border-b border-line pb-4">
+      <h3 class="text-lg font-display font-bold text-white">Fatura / Teklif Oluştur</h3>
+      <button onclick="closeInvoiceModal()" class="text-gray-400 hover:text-white text-lg">✕</button>
+    </div>
+    <div class="space-y-4">
+      <div class="flex items-center gap-1 bg-panel2 border border-line rounded-lg p-1 w-fit">
+        <button onclick="setInvoiceType('teklif', this)" class="tab-btn active" data-inv="teklif">Teklif</button>
+        <button onclick="setInvoiceType('fatura', this)" class="tab-btn" data-inv="fatura">Fatura</button>
+      </div>
+      <div><label class="text-xs font-semibold text-gray-400 mb-1 block">Belge No</label><input type="text" id="invNo" class="field font-num" placeholder="2026-001"></div>
+      <div><label class="text-xs font-semibold text-gray-400 mb-1 block">KDV Oranı (%) — 0 = KDV'siz</label><input type="number" id="invVat" class="field" placeholder="0" value="0"></div>
+      <div id="invSummary" class="bg-panel2 p-3 rounded-xl border border-line text-xs text-gray-400 space-y-1"></div>
+      <button onclick="generateInvoicePDF()" class="btn-primary w-full py-3">PDF Oluştur ve İndir</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: YENİ SATIŞ ── -->
+<div id="saleModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop bg-black/80 opacity-0 transition-opacity duration-300">
+  <div class="card p-6 w-full max-w-md shadow-2xl transform scale-95 transition-transform duration-300" id="saleModalContent">
+    <div class="flex justify-between items-center mb-5 border-b border-line pb-4">
+      <h3 class="text-lg font-display font-bold text-white">Sipariş Oluştur &amp; Stok Düşümü</h3>
+      <button onclick="closeSaleModal()" class="text-gray-400 hover:text-white text-lg">✕</button>
+    </div>
+
+    <div class="space-y-4">
+      <div><label class="text-xs font-semibold text-gray-400 mb-1 block">Müşteri Adı (Boşsa 'Genel Satış')</label><input type="text" id="saleCustomerName" class="field" placeholder="Örn: Ahmet Yılmaz"></div>
+
+      <div><label class="text-xs font-semibold text-gray-400 mb-1 block">Satılacak Tasarım</label><select id="saleDesignSelect" onchange="onDesignSelect()" class="field"><option value="">-- Seç --</option></select></div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="text-xs font-semibold text-gray-400 mb-1 block">Kullanılan Filament</label><select id="saleFilamentSelect" class="field"></select></div>
+        <div><label class="text-xs font-semibold text-gray-400 mb-1 block">Kullanılan Makine</label><select id="salePrinterSelect" class="field"></select></div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs font-semibold text-gray-400 mb-1 block">Sipariş Durumu</label>
+          <select id="saleInitialStatus" class="field">
+            <option value="Bekliyor">Bekliyor (Sıraya Alındı)</option>
+            <option value="Basılıyor">Basılıyor (Üretimde)</option>
+            <option value="Tamamlandı">Tamamlandı / Teslim Edildi</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-400 mb-1 block">Teslim Tarihi</label>
+          <input type="date" id="saleDueDate" class="field">
+        </div>
+      </div>
+
+      <div><label class="text-xs font-semibold text-gray-400 mb-1 block">Sipariş Notu (opsiyonel)</label><input type="text" id="saleNote" class="field" placeholder="Örn: Kırmızı renk istendi"></div>
+
+      <div class="bg-panel2 p-3 rounded-xl border border-line text-xs text-amber font-semibold">
+         * Onayladığında seçili makaradan gramaj düşecek ve makineye saat eklenecektir.
+      </div>
+
+      <div><label class="text-xs font-bold text-mint mb-1 block">Anlaşılan Fiyat (Öneri: <span id="saleModalRec" class="font-num">₺0,00</span>)</label><input type="number" id="saleOverridePrice" class="field border-mint/50 bg-mint/5 text-mint font-bold text-lg" placeholder="Örn: 260"></div>
+      <button onclick="confirmSale()" class="btn-mint w-full mt-2 py-3 text-lg">Siparişi Onayla</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: FOTOĞRAF ── -->
+<div id="imageModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop bg-black/90 opacity-0 transition-opacity duration-300">
+  <div class="card p-2 relative max-w-2xl w-full shadow-2xl transform scale-95 transition-transform duration-300" id="imageModalContent">
+    <button onclick="closeImageModal()" class="absolute -top-4 -right-4 bg-rose hover:brightness-110 text-white rounded-full w-9 h-9 flex items-center justify-center font-bold shadow-lg">✕</button>
+    <img id="modalImgFull" class="w-full h-auto rounded-xl object-contain bg-ink max-h-[75vh]" src="" alt="Önizleme">
+  </div>
+</div>
+
+<script>
+  // --- 0. TOAST ---
+  function toast(msg, type='ok') {
+    const host = document.getElementById('toastHost');
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    const icon = type==='ok' ? '✓' : '!';
+    el.innerHTML = `<span class="font-mono">${icon}</span><span>${msg}</span>`;
+    host.appendChild(el);
+    setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .25s'; setTimeout(()=>el.remove(), 250); }, 2600);
+  }
+
+  // --- 1. SUPABASE BAĞLANTISI ---
+  const SUPABASE_URL = 'https://jnaikhfkujwollzuelap.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_AOPfYnKGVcFengfnmVYF_w_SJPa9rEd';
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  let currentUser = null;
+
+  // --- 2. VERİ YAPILARI (Supabase'den yüklenene kadar boş) ---
+  let designs = [];
+  let sales = [];
+  let filaments = [];
+  let printers = [];
+  let notifsCache = [];
+
+  function money(v) { return `₺${v.toFixed(2)}`; }
+
+  // Supabase satırlarını uygulamanın kullandığı camelCase alan adlarına çeviriyoruz
+  function mapFilament(r) { return { id: r.id, name: r.name, totalW: Number(r.total_w), remW: Number(r.rem_w), price: Number(r.price) }; }
+  function mapPrinter(r) { return { id: r.id, name: r.name, power: Number(r.power), wear: Number(r.wear), hours: Number(r.hours) }; }
+  function mapDesign(r) { return { id: r.id, name: r.name, weight: Number(r.weight), time: Number(r.time), baseCost: Number(r.base_cost), recPrice: Number(r.rec_price), thumb: r.thumb, dFil: r.d_fil, dPrin: r.d_prin, dFil2: r.d_fil2, weight2: r.weight2 ? Number(r.weight2) : 0 };}
+  function mapSale(r) { return { id: r.id, date: r.date, timestamp: Number(r.timestamp), cust: r.cust, name: r.name, baseCost: Number(r.base_cost), actualPrice: Number(r.actual_price), profit: Number(r.profit), status: r.status, dueDate: r.due_date, note: r.note || '' }; }
+
+  async function loadAllData() {
+    const [filRes, prinRes, desRes, salRes, notifRes] = await Promise.all([
+      sb.from('filaments').select('*').order('created_at'),
+      sb.from('printers').select('*').order('created_at'),
+      sb.from('designs').select('*').order('created_at', { ascending: false }),
+      sb.from('sales').select('*').order('created_at', { ascending: false }),
+      sb.from('notifs').select('*').order('time', { ascending: false }).limit(30),
+    ]);
+    filaments = (filRes.data || []).map(mapFilament);
+    printers = (prinRes.data || []).map(mapPrinter);
+    designs = (desRes.data || []).map(mapDesign);
+    sales = (salRes.data || []).map(mapSale);
+    notifsCache = notifRes.data || [];
+
+    // Yeni hesaba varsayılan filament/yazıcı ekle (ilk giriş deneyimi için)
+    if(filaments.length === 0) {
+      const { data } = await sb.from('filaments').insert({ name: 'Genel Siyah PLA', total_w: 1000, rem_w: 1000, price: 500 }).select().single();
+      if(data) filaments.push(mapFilament(data));
+    }
+    if(printers.length === 0) {
+      const { data } = await sb.from('printers').insert({ name: 'Ender 3 V2', power: 250, wear: 3, hours: 0 }).select().single();
+      if(data) printers.push(mapPrinter(data));
+    }
+  }
+
+  // --- 2. ARAYÜZ VE MENÜLER ---
+  const sidebar = document.getElementById('sidebar'); const overlay = document.getElementById('sidebarOverlay'); let currentView = 'home';
+  function toggleSidebar() {
+    sidebar.classList.toggle('sidebar-closed'); sidebar.classList.toggle('sidebar-open');
+    if(window.innerWidth < 768) overlay.classList.toggle('hidden');
+  }
+
+  function switchView(view) {
+    currentView = view;
+    ['home', 'calculator', 'library', 'sales', 'account', 'inventory', 'customers', 'analytics'].forEach(v => { document.getElementById(`view-${v}`).classList.add('hidden'); document.getElementById(`nav-${v}`)?.classList.remove('active'); });
+    document.getElementById(`view-${view}`).classList.remove('hidden'); document.getElementById(`nav-${view}`)?.classList.add('active');
+
+    const titles = {'home':'Ana Sayfa','calculator':'Hesaplayıcı','library':'Kütüphane','sales':'Satışlar','account':'Ayarlar','inventory':'Depo','customers':'Müşteriler','analytics':'Analiz'};
+    document.getElementById('topTitle').textContent = titles[view];
+    if(window.innerWidth >= 768) { view==='home' ? sidebar.classList.add('sidebar-closed') : (sidebar.classList.remove('sidebar-closed'), sidebar.classList.add('sidebar-open')); }
+    else { sidebar.classList.add('sidebar-closed'); sidebar.classList.remove('sidebar-open'); overlay.classList.add('hidden'); }
+
+    if(view === 'library') renderLibrary();
+    if(view === 'sales') renderSales();
+    if(view === 'home') { renderHomeStats(); setTrendRange(trendRangeDays); }
+    if(view === 'inventory') { renderFilaments(); renderPrinters(); }
+    if(view === 'calculator') populateCalcDropdowns();
+    if(view === 'customers') renderCustomers();
+    updateNavBadges();
+  }
+  window.addEventListener('resize', () => { if(window.innerWidth>=768){ currentView==='home'?sidebar.classList.add('sidebar-closed'):sidebar.classList.remove('sidebar-closed'); overlay.classList.add('hidden'); } });
+
+  // Esc ile modalları kapat
+  document.addEventListener('keydown', e => {
+    if(e.key !== 'Escape') return;
+    if(!document.getElementById('saleModal').classList.contains('hidden')) closeSaleModal();
+    if(!document.getElementById('imageModal').classList.contains('hidden')) closeImageModal();
+  });
+
+  // Saat rozeti
+  function tickClock() {
+    const el = document.getElementById('clockBadge'); if(!el) return;
+    const d = new Date();
+    el.textContent = d.toLocaleDateString('tr-TR') + ' · ' + d.toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'});
+  }
+  tickClock(); setInterval(tickClock, 30000);
+
+  // --- 3. SÜRÜKLE BIRAK (DOSYA YÜKLEME) ---
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+
+  dropZone.addEventListener('click', () => fileInput.click());
+
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, preventDefaults, false);
+    document.body.addEventListener(eventName, preventDefaults, false);
+  });
+  function preventDefaults (e) { e.preventDefault(); e.stopPropagation(); }
+
+  ['dragenter', 'dragover'].forEach(eventName => { dropZone.addEventListener(eventName, () => dropZone.classList.add('dropzone-active'), false); });
+  ['dragleave', 'drop'].forEach(eventName => { dropZone.addEventListener(eventName, () => dropZone.classList.remove('dropzone-active'), false); });
+
+  dropZone.addEventListener('drop', handleDrop, false);
+
+  function handleDrop(e) {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    if(files.length > 0) {
+      fileInput.files = files;
+      fileInput.dispatchEvent(new Event('change'));
+    }
+  }
+
+  // --- 4. DEPO VE YAZICILAR ---
+  async function addFilament() {
+    const n = document.getElementById('invFilName').value; const w = parseFloat(document.getElementById('invFilWeight').value); const p = parseFloat(document.getElementById('invFilPrice').value);
+    if(!n || !w || !p) return toast('Tüm alanları doldurmalısın.', 'err');
+    const { data, error } = await sb.from('filaments').insert({ name: n, total_w: w, rem_w: w, price: p }).select().single();
+    if(error) return toast('Kayıt hatası: ' + error.message, 'err');
+    filaments.push(mapFilament(data));
+    document.getElementById('invFilName').value=''; document.getElementById('invFilWeight').value=''; document.getElementById('invFilPrice').value=''; renderFilaments();
+    toast(`${n} stoka eklendi.`);
+  }
+  function renderFilaments() {
+    const list = document.getElementById('filamentList'); list.innerHTML = '';
+    document.getElementById('filamentEmpty').classList.toggle('hidden', filaments.length !== 0);
+    filaments.forEach((f, i) => {
+      const pct = Math.max(0, (f.remW / f.totalW) * 100);
+      let color = pct > 50 ? 'bg-hot' : (pct > 20 ? 'bg-amber' : 'bg-rose');
+      let warn = pct < 20 ? `<span class="text-rose text-xs font-bold ml-2">TÜKENİYOR!</span>` : '';
+      list.innerHTML += `<tr class="border-b border-line"><td class="py-3"><div class="flex justify-between items-center mb-1"><span class="font-bold text-white">${f.name} ${warn}</span><button onclick="delFil(${i})" class="text-rose/70 hover:text-rose">✕</button></div><div class="text-xs text-gray-500 mb-2 font-num">Fiyat: ${money(f.price)} | Kalan: ${f.remW.toFixed(1)}g / ${f.totalW}g</div><div class="w-full bg-ink rounded-full h-1.5"><div class="${color} h-1.5 rounded-full progress-bar" style="width: ${pct}%"></div></div></td></tr>`;
+    });
+  }
+  async function delFil(i) {
+    if(!confirm('Sileyim mi?')) return;
+    const n = filaments[i].name; const id = filaments[i].id;
+    const { error } = await sb.from('filaments').delete().eq('id', id);
+    if(error) return toast('Silme hatası: ' + error.message, 'err');
+    filaments.splice(i,1); renderFilaments(); toast(`${n} silindi.`);
+  }
+
+  async function addPrinter() {
+    const n = document.getElementById('invPrinName').value; const p = parseFloat(document.getElementById('invPrinPower').value); const w = parseFloat(document.getElementById('invPrinWear').value);
+    if(!n || !p || !w) return toast('Tüm alanları doldurmalısın.', 'err');
+    const { data, error } = await sb.from('printers').insert({ name: n, power: p, wear: w, hours: 0 }).select().single();
+    if(error) return toast('Kayıt hatası: ' + error.message, 'err');
+    printers.push(mapPrinter(data));
+    document.getElementById('invPrinName').value=''; document.getElementById('invPrinPower').value=''; document.getElementById('invPrinWear').value=''; renderPrinters();
+    toast(`${n} garaja eklendi.`);
+  }
+  function renderPrinters() {
+    const list = document.getElementById('printerList'); list.innerHTML = '';
+    document.getElementById('printerEmpty').classList.toggle('hidden', printers.length !== 0);
+    printers.forEach((p, i) => {
+      let warn = p.hours > 300 ? `<div class="text-rose text-xs font-bold bg-rose/10 p-1.5 rounded mt-2 border border-rose/30">⚠️ Bakım Zamanı (Kayış/Nozzle)</div>` : '';
+      list.innerHTML += `<tr class="border-b border-line"><td class="py-3"><div class="flex justify-between items-center"><span class="font-bold text-white">${p.name}</span><button onclick="delPrin(${i})" class="text-rose/70 hover:text-rose">✕</button></div><div class="text-xs text-gray-500 mt-1 font-num">${p.power} Watt | Amortisman: ${money(p.wear)}/saat</div><div class="text-xs font-semibold text-mint mt-1 font-num">Toplam Çalışma: ${p.hours.toFixed(1)} Saat</div>${warn}</td></tr>`;
+    });
+  }
+  async function delPrin(i) {
+    if(!confirm('Sileyim mi?')) return;
+    const n = printers[i].name; const id = printers[i].id;
+    const { error } = await sb.from('printers').delete().eq('id', id);
+    if(error) return toast('Silme hatası: ' + error.message, 'err');
+    printers.splice(i,1); renderPrinters(); toast(`${n} silindi.`);
+  }
+
+  // --- 5. HESAPLAYICI ---
+  let currentCalc = null; let currentThumb = null; let currentName = null;
+  const inps = { elec: document.getElementById('inpElec'), lab: document.getElementById('inpLabor'), pt: document.getElementById('inpPostTime'), fail: document.getElementById('inpFailure'), prof: document.getElementById('inpProfit') };
+  const wInp = document.getElementById('inpManualWeight'); const tInp = document.getElementById('inpManualTime');
+
+  function populateCalcDropdowns() {
+    const fs = document.getElementById('calcFilamentSelect'); const ps = document.getElementById('calcPrinterSelect'); const fs2 = document.getElementById('calcFilamentSelect2');
+    fs.innerHTML = ''; ps.innerHTML = ''; fs2.innerHTML = '';
+    filaments.forEach(f => { fs.innerHTML += `<option value="${f.id}">${f.name} (${f.price} ₺)</option>`; fs2.innerHTML += `<option value="${f.id}">${f.name} (${f.price} ₺)</option>`; });
+    printers.forEach(p => ps.innerHTML += `<option value="${p.id}">${p.name} (${p.power}W)</option>`);
+    calculate();
+  }
+
+  const chkSecondFil = document.getElementById('chkSecondFil'); const secondFilRow = document.getElementById('secondFilRow'); const wInp2 = document.getElementById('inpManualWeight2');
+  chkSecondFil.addEventListener('change', () => { secondFilRow.classList.toggle('hidden', !chkSecondFil.checked); calculate(); });
+
+  [wInp, tInp, wInp2, inps.elec, inps.lab, inps.pt, inps.fail, inps.prof, document.getElementById('calcFilamentSelect'), document.getElementById('calcFilamentSelect2'), document.getElementById('calcPrinterSelect')].forEach(el => el.addEventListener('input', calculate));
+
+  fileInput.addEventListener('change', e => {
+    const f = e.target.files[0]; if(!f) return; currentName = f.name.replace('.gcode','');
+    document.getElementById('viewerStatus').textContent = "Okunuyor...";
+    const r = new FileReader();
+    r.onload = ev => {
+      let text = ev.target.result;
+      let s = text.indexOf("; thumbnail begin 400x400"); if(s===-1) s=text.indexOf("; thumbnail begin");
+      if(s!==-1) { let e = text.indexOf("; thumbnail end", s); if(e!==-1) currentThumb = text.substring(s,e).split('\n').slice(1).map(l=>l.replace(/^;\s*/,'').trim()).join(''); }
+      if(currentThumb) { document.getElementById('thumbnailImg').src="data:image/png;base64,"+currentThumb; document.getElementById('thumbnailImg').classList.remove('hidden'); document.getElementById('uploadPrompt').classList.add('hidden'); }
+
+      let tail = text.length>200000?text.slice(-200000):text; let wm = tail.match(/;\s*filament used \[g\]\s*=\s*([\d.]+)/i) || tail.match(/;\s*Filament\s*[Ww]eight.*?([\d.]+)/i); let w=0, t=0;
+      if(wm) w = parseFloat(wm[1]);
+      let tm = tail.match(/;\s*estimated printing time.*?=\s*(.+)/i);
+      if(tm) { const s=tm[1].trim(), d=s.match(/(\d+)\s*d/i), h=s.match(/(\d+)\s*h/i), m=s.match(/(\d+)\s*m/i), se=s.match(/(\d+)\s*s/i); if(d)t+=parseInt(d[1])*86400; if(h)t+=parseInt(h[1])*3600; if(m)t+=parseInt(m[1])*60; if(se)t+=parseInt(se[1]); }
+
+      wInp.value = w.toFixed(1); tInp.value = Math.ceil(t/60); document.getElementById('inpProjectName').value = currentName;
+      document.getElementById('viewerStatus').textContent = `${currentName} yüklendi.`;
+      calculate();
+
+      fileInput.value = '';
+    }; r.readAsText(f);
+  });
+
+  function calculate() {
+    let w = parseFloat(wInp.value.replace(',','.'))||0; let tm = parseFloat(tInp.value.replace(',','.'))||0; let ts = tm*60;
+    if(w===0) { document.getElementById('btnSaveDesign').disabled=true; return; }
+
+    const fid = document.getElementById('calcFilamentSelect').value; const pid = document.getElementById('calcPrinterSelect').value;
+    const fil = filaments.find(x=>x.id==fid); const prin = printers.find(x=>x.id==pid);
+    if(!fil || !prin) return;
+
+    let w2 = 0, fil2 = null;
+    if(chkSecondFil.checked) {
+      const fid2 = document.getElementById('calcFilamentSelect2').value;
+      fil2 = filaments.find(x=>x.id==fid2);
+      w2 = parseFloat(wInp2.value.replace(',','.'))||0;
+    }
+
+    const fkg = fil.price / (fil.totalW/1000);
+    const pHrs = ts/3600; const pElec = parseFloat(inps.elec.value)||0; const pLab = parseFloat(inps.lab.value)||0; const mFail = parseFloat(inps.fail.value)||0; const mProf = parseFloat(inps.prof.value)||0; const postM = parseFloat(inps.pt.value)||0;
+
+    let cMat = (w/1000)*fkg;
+    if(fil2 && w2 > 0) { const fkg2 = fil2.price / (fil2.totalW/1000); cMat += (w2/1000)*fkg2; }
+    const cElec = pHrs*(prin.power/1000)*pElec; const cLab = (postM/60)*pLab; const cWear = pHrs*prin.wear;
+    const base = cMat+cElec+cLab+cWear; const cFail = base*(mFail/100); const wRisk = base+cFail; const cProf = wRisk*(mProf/100); const final = wRisk+cProf;
+
+    currentCalc = { weight:w, time:ts, cMat, cElec, base:wRisk, cProfit:cProf, finalPrice:final, filId: fil.id, prinId: prin.id, fil2Id: fil2?fil2.id:null, weight2: w2 };
+
+    document.getElementById('tdMat').textContent = money(cMat); document.getElementById('tdElec').textContent = money(cElec);
+    document.getElementById('tdLaborWear').textContent = money(cLab+cWear); document.getElementById('tdBase').textContent = money(wRisk);
+    document.getElementById('lblProfit').textContent = mProf; document.getElementById('tdProfitStr').textContent = money(cProf); document.getElementById('tdFinal').textContent = money(final);
+    document.getElementById('btnSaveDesign').disabled = false;
+    updatePieChart(cMat, cElec, cLab, cWear, cFail);
+  }
+
+  document.getElementById('btnSaveDesign').addEventListener('click', async () => {
+    const n = document.getElementById('inpProjectName').value.trim() || 'İsimsiz';
+    const { data, error } = await sb.from('designs').insert({
+      name: n, weight: currentCalc.weight, time: currentCalc.time, base_cost: currentCalc.base, rec_price: currentCalc.finalPrice,
+      thumb: currentThumb, d_fil: currentCalc.filId, d_prin: currentCalc.prinId, d_fil2: currentCalc.fil2Id, weight2: currentCalc.weight2
+    }).select().single();
+    if(error) return toast('Kayıt hatası: ' + error.message, 'err');
+    designs.unshift(mapDesign(data));
+    currentCalc=null; currentThumb=null; document.getElementById('inpProjectName').value=''; wInp.value=''; tInp.value=''; wInp2.value=''; chkSecondFil.checked=false; secondFilRow.classList.add('hidden');
+    document.getElementById('thumbnailImg').classList.add('hidden'); document.getElementById('uploadPrompt').classList.remove('hidden'); document.getElementById('btnSaveDesign').disabled=true;
+    document.getElementById('viewerStatus').textContent = "";
+    toast(`"${n}" kütüphaneye kaydedildi.`);
+    switchView('library');
+  });
+
+  // --- 6. KÜTÜPHANE VE SATIŞ / KANBAN ---
+  function renderLibrary() {
+    const body = document.getElementById('libraryBody'); body.innerHTML='';
+    const q = (document.getElementById('librarySearch')?.value || '').toLowerCase();
+    const filtered = designs.filter(d => d.name.toLowerCase().includes(q));
+    if(designs.length===0) { document.getElementById('libraryEmpty').style.display='block'; document.getElementById('libraryEmpty').textContent = "Henüz tasarım yok — Hesaplayıcı'dan ilk tasarımını kaydet."; }
+    else if(filtered.length===0) { document.getElementById('libraryEmpty').style.display='block'; document.getElementById('libraryEmpty').textContent = "Aramanla eşleşen tasarım bulunamadı."; }
+    else {
+      document.getElementById('libraryEmpty').style.display='none';
+      filtered.forEach(d => {
+        let tb = d.thumb?`<button onclick="openImg('${d.thumb}')" class="p-1 bg-panel2 rounded">📸</button>`:'-';
+        let dualBadge = d.dFil2 ? `<span class="text-[10px] bg-spool/15 text-spool font-bold px-1.5 py-0.5 rounded ml-2">2 RENK</span>` : '';
+        body.innerHTML+=`<tr class="border-b border-line"><td class="text-center">${tb}</td><td class="font-bold text-white">${d.name} <span class="text-xs text-gray-500 font-normal ml-2 font-num">(${d.weight}g)</span>${dualBadge}</td><td class="text-gray-400 font-num">${money(d.baseCost)}</td><td class="font-extrabold text-hot font-num">${money(d.recPrice)}</td><td class="text-right"><button onclick="delDes(${d.id})" class="text-rose hover:text-rose/80 text-sm font-semibold">Sil</button></td></tr>`;
+      });
+    }
+  }
+  async function delDes(id) {
+    if(!confirm('Sil?')) return;
+    const d = designs.find(x=>x.id===id);
+    const { error } = await sb.from('designs').delete().eq('id', id);
+    if(error) return toast('Silme hatası: ' + error.message, 'err');
+    designs = designs.filter(x=>x.id!==id); renderLibrary(); toast(`"${d?.name||''}" silindi.`);
+  }
+
+  function openSaleModal() {
+    if(designs.length===0) { toast('Önce kütüphaneye tasarım kaydet.', 'err'); return; }
+    const ds = document.getElementById('saleDesignSelect'); const fs = document.getElementById('saleFilamentSelect'); const ps = document.getElementById('salePrinterSelect');
+    ds.innerHTML='<option value="">-- Tasarım --</option>'; fs.innerHTML=''; ps.innerHTML='';
+    designs.forEach(d => ds.innerHTML+=`<option value="${d.id}">${d.name}</option>`);
+    filaments.forEach(f => fs.innerHTML+=`<option value="${f.id}">${f.name} (Kalan: ${f.remW.toFixed(0)}g)</option>`);
+    printers.forEach(p => ps.innerHTML+=`<option value="${p.id}">${p.name}</option>`);
+    document.getElementById('saleModal').classList.remove('hidden'); requestAnimationFrame(()=>document.getElementById('saleModal').classList.remove('opacity-0'));
+  }
+  function closeSaleModal() {
+    document.getElementById('saleModal').classList.add('opacity-0');
+    setTimeout(()=>document.getElementById('saleModal').classList.add('hidden'), 300);
+    document.getElementById('saleCustomerName').value=''; document.getElementById('saleDueDate').value=''; document.getElementById('saleNote').value='';
+  }
+
+  function onDesignSelect() {
+    const id = document.getElementById('saleDesignSelect').value; const d = designs.find(x=>x.id==id);
+    if(d) {
+      document.getElementById('saleModalRec').textContent = money(d.recPrice); document.getElementById('saleOverridePrice').value = Math.round(d.recPrice);
+      document.getElementById('saleFilamentSelect').value = d.dFil || filaments[0].id; document.getElementById('salePrinterSelect').value = d.dPrin || printers[0].id;
+    }
+  }
+
+  async function confirmSale() {
+    const did = document.getElementById('saleDesignSelect').value; const price = parseFloat(document.getElementById('saleOverridePrice').value);
+    const fid = document.getElementById('saleFilamentSelect').value; const pid = document.getElementById('salePrinterSelect').value;
+    const custName = document.getElementById('saleCustomerName').value.trim() || 'Genel Müşteri';
+    const status = document.getElementById('saleInitialStatus').value;
+    const dueDate = document.getElementById('saleDueDate').value;
+    const note = document.getElementById('saleNote').value.trim();
+
+    if(!did || isNaN(price)) { toast('Tasarım ve fiyat giriniz.', 'err'); return; }
+
+    const d = designs.find(x=>x.id==did);
+    const f = filaments.find(x=>x.id==fid);
+    const f2 = (d.dFil2 && d.weight2) ? filaments.find(x=>x.id==d.dFil2) : null;
+    const p = printers.find(x=>x.id==pid);
+
+    // Depo/makine güncellemeleri
+    if(f) { f.remW -= d.weight; const { error } = await sb.from('filaments').update({ rem_w: f.remW }).eq('id', f.id); if(error) return toast('Stok güncelleme hatası: '+error.message, 'err'); }
+    if(f2) { f2.remW -= d.weight2; await sb.from('filaments').update({ rem_w: f2.remW }).eq('id', f2.id); }
+    if(p) { p.hours += (d.time/3600); const { error } = await sb.from('printers').update({ hours: p.hours }).eq('id', p.id); if(error) return toast('Makine güncelleme hatası: '+error.message, 'err'); }
+
+    const newSale = { date:new Date().toLocaleDateString('tr-TR'), timestamp: Date.now(), cust: custName, name: d.name, base_cost: d.baseCost, actual_price: price, profit: price-d.baseCost, status: status, due_date: dueDate || null, note: note || '' };
+    const { data, error } = await sb.from('sales').insert(newSale).select().single();
+    if(error) return toast('Sipariş kaydı hatası: ' + error.message, 'err');
+    sales.unshift(mapSale(data));
+
+    closeSaleModal(); renderSales(); renderFilaments(); renderPrinters();
+    document.getElementById('saleDueDate').value=''; document.getElementById('saleNote').value='';
+    toast(`Sipariş oluşturuldu: ${d.name}`);
+  }
+
+  window.cycleStatus = async function(id) {
+      const sale = sales.find(s => s.id === id);
+      if(!sale) return;
+      let newStatus;
+      if(sale.status === 'Bekliyor') newStatus = 'Basılıyor';
+      else if(sale.status === 'Basılıyor') newStatus = 'Tamamlandı';
+      else newStatus = 'Bekliyor';
+      const { error } = await sb.from('sales').update({ status: newStatus }).eq('id', id);
+      if(error) return toast('Durum güncelleme hatası: ' + error.message, 'err');
+      sale.status = newStatus;
+      renderSales();
+  }
+
+  let salesTabFilter = 'all';
+  function setSalesTab(status, el) {
+    salesTabFilter = status;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    renderSales();
+  }
+
+  function dueBadge(sale) {
+    if(!sale.dueDate) return '<span class="text-gray-600 text-xs">-</span>';
+    const due = new Date(sale.dueDate); const today = new Date(); today.setHours(0,0,0,0);
+    const diffDays = Math.round((due - today) / 86400000);
+    let cls = 'text-gray-400'; let label = due.toLocaleDateString('tr-TR');
+    if(sale.status !== 'Tamamlandı') {
+      if(diffDays < 0) cls = 'text-rose font-bold';
+      else if(diffDays <= 1) cls = 'text-amber font-bold';
+    }
+    return `<span class="text-xs font-num ${cls}">${label}</span>`;
+  }
+
+  function renderSales() {
+    const body = document.getElementById('salesBody'); body.innerHTML=''; let ts=0, tp=0;
+    const q = (document.getElementById('salesSearch')?.value || '').toLowerCase();
+    let sortedSales = [...sales].sort((a,b) => b.timestamp - a.timestamp).filter(s => s.cust.toLowerCase().includes(q) || s.name.toLowerCase().includes(q));
+    if(salesTabFilter !== 'all') sortedSales = sortedSales.filter(s => s.status === salesTabFilter);
+
+    if(sales.length===0) { document.getElementById('salesEmpty').style.display='block'; document.getElementById('salesEmpty').textContent = "Sipariş bulunamadı."; }
+    else if(sortedSales.length===0) { document.getElementById('salesEmpty').style.display='block'; document.getElementById('salesEmpty').textContent = "Bu filtreyle eşleşen sipariş bulunamadı."; }
+    else {
+      document.getElementById('salesEmpty').style.display='none';
+      sortedSales.forEach(s => {
+        ts+=s.actualPrice; tp+=s.profit;
+
+        let statusBadge = "";
+        if(s.status === 'Bekliyor') statusBadge = `<button onclick="cycleStatus(${s.id})" class="px-2.5 py-1 text-xs rounded-full bg-amber/15 text-amber font-bold border border-amber/30 hover:bg-amber/25 transition-colors">Bekliyor</button>`;
+        else if(s.status === 'Basılıyor') statusBadge = `<button onclick="cycleStatus(${s.id})" class="px-2.5 py-1 text-xs rounded-full bg-spool/15 text-spool font-bold border border-spool/30 hover:bg-spool/25 transition-colors">Basılıyor</button>`;
+        else statusBadge = `<button onclick="cycleStatus(${s.id})" class="px-2.5 py-1 text-xs rounded-full bg-mint/15 text-mint font-bold border border-mint/30 hover:bg-mint/25 transition-colors">Tamamlandı</button>`;
+
+        let noteIcon = s.note ? `<span title="${s.note.replace(/"/g,'&quot;')}" class="ml-1.5 text-gray-500 cursor-help">📝</span>` : '';
+
+        body.innerHTML+=`<tr class="border-b border-line cursor-pointer" onclick="openSaleDetail(${s.id})"><td class="text-gray-500 text-xs font-num">${s.date}</td><td class="font-bold text-gray-300">${s.cust}</td><td class="font-bold text-white">${s.name}${noteIcon}</td>
+        <td>${dueBadge(s)}</td>
+        <td onclick="event.stopPropagation()">${statusBadge}</td>
+        <td class="font-extrabold text-white font-num">${money(s.actualPrice)}</td><td class="font-extrabold text-mint font-num">${money(s.profit)}</td>
+        <td class="text-right whitespace-nowrap" onclick="event.stopPropagation()"><button onclick="openInvoiceModal(${s.id})" title="Fatura/Teklif" class="text-amber hover:text-amber/80 text-sm mr-2">🧾</button><button onclick="copyTrackLink(${s.id})" title="Takip Linki Kopyala" class="text-spool hover:text-spool/80 text-sm mr-2">🔗</button><button onclick="delSale(${s.id})" class="text-rose hover:text-rose/80 text-sm font-semibold">Sil</button></td></tr>`;
+      });
+    }
+  }
+  async function delSale(id) {
+    if(!confirm('Sileyim mi?')) return;
+    const { error } = await sb.from('sales').delete().eq('id', id);
+    if(error) return toast('Silme hatası: ' + error.message, 'err');
+    sales = sales.filter(x=>x.id!==id); renderSales(); toast('Sipariş silindi.');
+  }
+
+  function exportSalesCSV() {
+    if(sales.length===0) { toast('Aktarılacak sipariş yok.', 'err'); return; }
+    let rows = [['Tarih','Müşteri','Ürün','Teslim Tarihi','Durum','Satış','Kâr','Not']];
+    [...sales].sort((a,b)=>b.timestamp-a.timestamp).forEach(s => rows.push([s.date, s.cust, s.name, s.dueDate||'', s.status, s.actualPrice.toFixed(2), s.profit.toFixed(2), s.note||'']));
+    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob(["\uFEFF"+csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `PrintDefteri_Satislar_${new Date().toLocaleDateString('tr-TR')}.csv`; a.click();
+    toast('CSV indirildi.');
+  }
+
+  // --- MÜŞTERİLER (CRM) ---
+  function renderCustomers() {
+    const grid = document.getElementById('customersGrid'); grid.innerHTML='';
+    const q = (document.getElementById('customerSearch')?.value || '').toLowerCase();
+    const byCustomer = {};
+    sales.forEach(s => {
+      if(!byCustomer[s.cust]) byCustomer[s.cust] = { name: s.cust, total: 0, profit: 0, count: 0, last: 0, orders: [] };
+      byCustomer[s.cust].total += s.actualPrice; byCustomer[s.cust].profit += s.profit; byCustomer[s.cust].count++;
+      byCustomer[s.cust].last = Math.max(byCustomer[s.cust].last, s.timestamp); byCustomer[s.cust].orders.push(s);
+    });
+    let list = Object.values(byCustomer).filter(c => c.name.toLowerCase().includes(q)).sort((a,b) => b.total - a.total);
+
+    document.getElementById('customersEmpty').classList.toggle('hidden', sales.length !== 0);
+    if(sales.length===0) return;
+
+    list.forEach(c => {
+      const initials = c.name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+      const lastOrders = [...c.orders].sort((a,b)=>b.timestamp-a.timestamp).slice(0,3);
+      grid.innerHTML += `<div class="card p-5">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-11 h-11 rounded-full bg-gradient-to-tr from-spool to-hot flex items-center justify-center font-display font-bold text-sm text-ink shrink-0">${initials}</div>
+          <div class="flex-1 min-w-0"><p class="font-bold text-white truncate">${c.name}</p><p class="text-xs text-gray-500 font-num">${c.count} sipariş · Son: ${new Date(c.last).toLocaleDateString('tr-TR')}</p></div>
+        </div>
+        <div class="grid grid-cols-2 gap-3 mb-4">
+          <div class="bg-panel2 rounded-lg p-3"><p class="text-[10px] text-gray-500 uppercase font-semibold">Toplam Harcama</p><p class="font-num font-bold text-white">${money(c.total)}</p></div>
+          <div class="bg-panel2 rounded-lg p-3"><p class="text-[10px] text-gray-500 uppercase font-semibold">Sağladığı Kâr</p><p class="font-num font-bold text-mint">${money(c.profit)}</p></div>
+        </div>
+        <p class="text-[10px] text-gray-500 uppercase font-semibold mb-2">Son Siparişler</p>
+        <div class="space-y-1.5">
+          ${lastOrders.map(o => `<div class="flex items-center justify-between text-xs"><span class="text-gray-400 truncate">${o.name}</span><span class="font-num text-gray-300 shrink-0 ml-2">${money(o.actualPrice)}</span></div>`).join('')}
+        </div>
+      </div>`;
+    });
+  }
+
+  function updateNavBadges() {
+    const pendingCount = sales.filter(s => s.status !== 'Tamamlandı').length;
+    const badgeSales = document.getElementById('navBadgeSales');
+    if(badgeSales) { badgeSales.classList.toggle('hidden', pendingCount===0); badgeSales.textContent = pendingCount; }
+
+    const lowStockCount = filaments.filter(f => (f.remW/f.totalW)*100 < 20).length;
+    const badgeInv = document.getElementById('navBadgeInventory');
+    if(badgeInv) { badgeInv.classList.toggle('hidden', lowStockCount===0); badgeInv.textContent = lowStockCount; }
+  }
+
+  function renderHomeStats() {
+    let ts=0, tp=0; sales.forEach(s=>{ts+=s.actualPrice; tp+=s.profit;});
+    document.getElementById('home-total-sales').textContent=money(ts); document.getElementById('home-total-profit').textContent=money(tp);
+    const unq = new Set(sales.map(s=>s.cust)); document.getElementById('home-total-customers').textContent = unq.size + " Kişi";
+    const avgMargin = ts > 0 ? ((tp/ts)*100) : 0;
+    document.getElementById('home-avg-margin').textContent = `%${avgMargin.toFixed(0)}`;
+
+    // Uyarı bandı: düşük stok / bakım zamanı
+    const lowFil = filaments.filter(f => (f.remW/f.totalW)*100 < 20);
+    const maintPrin = printers.filter(p => p.hours > 300);
+    const banner = document.getElementById('alertBanner');
+    if(lowFil.length===0 && maintPrin.length===0) { banner.classList.add('hidden'); banner.innerHTML=''; }
+    else {
+      banner.classList.remove('hidden');
+      let items = [];
+      if(lowFil.length>0) items.push(`<span class="text-rose font-semibold">${lowFil.length} filament makarası tükeniyor</span>`);
+      if(maintPrin.length>0) items.push(`<span class="text-amber font-semibold">${maintPrin.length} yazıcı bakım zamanı geldi</span>`);
+      banner.innerHTML = `<div class="card p-4 flex items-center gap-3 border-amber/30"><svg class="w-5 h-5 text-amber shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"></path></svg><p class="text-sm text-gray-300">${items.join(' · ')} — <button onclick="switchView('inventory')" class="underline underline-offset-2 hover:text-white">Depoyu Gör</button></p></div>`;
+    }
+
+    renderTopDesigns();
+  }
+
+  function renderTopDesigns() {
+    const host = document.getElementById('topDesignsList'); if(!host) return;
+    const byName = {};
+    sales.forEach(s => { if(!byName[s.name]) byName[s.name] = { name: s.name, count: 0, total: 0 }; byName[s.name].count++; byName[s.name].total += s.actualPrice; });
+    const top = Object.values(byName).sort((a,b)=>b.count-a.count).slice(0,5);
+    if(top.length===0) { host.innerHTML = `<p class="text-sm text-gray-600 py-8 text-center">Henüz satış verisi yok.</p>`; return; }
+    const maxCount = top[0].count;
+    host.innerHTML = top.map((t,i) => `
+      <div>
+        <div class="flex items-center justify-between text-xs mb-1">
+          <span class="font-semibold text-gray-300 truncate flex items-center gap-1.5">${i===0?'🏆':''} ${t.name}</span>
+          <span class="text-gray-500 font-num shrink-0 ml-2">${t.count}x</span>
+        </div>
+        <div class="w-full bg-ink rounded-full h-1.5"><div class="bg-gradient-to-r from-hot to-amber h-1.5 rounded-full" style="width:${(t.count/maxCount)*100}%"></div></div>
+      </div>`).join('');
+  }
+
+  // --- 7. GRAFİKLER ---
+  let pieInst = null;
+  function updatePieChart(m, e, l, w, f) {
+    if(!pieInst) pieInst = new Chart(document.getElementById('pieChart').getContext('2d'), { type:'doughnut', data:{labels:['Malzeme','Elektrik','İşçilik','Amortisman','Risk'], datasets:[{data:[], backgroundColor:['#39ff8a','#38bdf8','#ffb020','#a78bfa','#ff5470'], borderColor:'#131a16', borderWidth:2}]}, options:{responsive:true, maintainAspectRatio:false, cutout:'75%', plugins:{legend:{position:'bottom', labels:{boxWidth:12, font:{size:11}, color:'#8b9c93'}}}} });
+    pieInst.data.datasets[0].data = [m, e, l, w, f]; pieInst.update();
+  }
+
+  let lineInst = null;
+  let trendRangeDays = 7;
+  function setTrendRange(days) {
+    trendRangeDays = days;
+    ['7','30','0'].forEach(d => document.getElementById(`rangeBtn-${d}`)?.classList.toggle('active', d==String(days)));
+    updateLineChart();
+  }
+
+  function updateLineChart() {
+    const ctx = document.getElementById('lineChart').getContext('2d');
+
+    let filteredSales = sales;
+    if(trendRangeDays > 0) {
+      const cutoff = Date.now() - trendRangeDays*86400000;
+      filteredSales = sales.filter(s => s.timestamp >= cutoff);
+    }
+
+    let groupedSales = {};
+    filteredSales.forEach(s => {
+        if(!groupedSales[s.date]) groupedSales[s.date] = 0;
+        groupedSales[s.date] += s.actualPrice;
+    });
+
+    let labels = Object.keys(groupedSales).sort((a,b) => {
+      const [da,ma,ya]=a.split('.').map(Number), [db,mb,yb]=b.split('.').map(Number);
+      return new Date(ya,ma-1,da) - new Date(yb,mb-1,db);
+    });
+    let data = labels.map(l => groupedSales[l]);
+
+    if(labels.length === 0) {
+        labels = ["1 Gün Önce", "Bugün"];
+        data = [0, 0];
+    }
+
+    if(lineInst) lineInst.destroy();
+
+    const gradient = ctx.createLinearGradient(0,0,0,250);
+    gradient.addColorStop(0, 'rgba(57,255,138,0.26)');
+    gradient.addColorStop(1, 'rgba(57,255,138,0)');
+
+    lineInst = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Günlük Ciro (₺)',
+          data: data,
+          borderColor: '#39ff8a',
+          backgroundColor: gradient,
+          borderWidth: 3,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 3,
+          pointBackgroundColor: '#39ff8a',
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: { beginAtZero: true, grid: { color: '#1e232a' }, ticks: { color: '#6b7280' } },
+          x: { grid: { display: false }, ticks: { color: '#6b7280' } }
+        },
+        plugins: { legend: { display: false } }
+      }
+    });
+  }
+
+  // --- 8. YEDEKLEME ---
+  function exportBackup() {
+    const data = { designs, sales, filaments, printers };
+    const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+    a.download = `PrintDefteri_Yedek_${new Date().toLocaleDateString('tr-TR')}.json`; a.click();
+    toast('Yedek indirildi.');
+  }
+  function importBackup(e) {
+    const f = e.target.files[0]; if(!f) return;
+    const r = new FileReader();
+    r.onload = async ev => {
+      try {
+        const d = JSON.parse(ev.target.result);
+        toast('Veriler yükleniyor, bekleyin...');
+        if(Array.isArray(d.filaments)) for(const x of d.filaments) await sb.from('filaments').insert({ name: x.name, total_w: x.totalW, rem_w: x.remW, price: x.price });
+        if(Array.isArray(d.printers)) for(const x of d.printers) await sb.from('printers').insert({ name: x.name, power: x.power, wear: x.wear, hours: x.hours || 0 });
+        if(Array.isArray(d.designs)) for(const x of d.designs) await sb.from('designs').insert({ name: x.name, weight: x.weight, time: x.time, base_cost: x.baseCost, rec_price: x.recPrice, thumb: x.thumb, d_fil: x.dFil, d_prin: x.dPrin, d_fil2: x.dFil2, weight2: x.weight2 });
+        if(Array.isArray(d.sales)) for(const x of d.sales) await sb.from('sales').insert({ date: x.date, timestamp: x.timestamp, cust: x.cust, name: x.name, base_cost: x.baseCost, actual_price: x.actualPrice, profit: x.profit, status: x.status, due_date: x.dueDate, note: x.note });
+        toast('İçe aktarma tamamlandı, sistem yeniden başlatılıyor...'); setTimeout(()=>location.reload(), 900);
+      } catch(err) { toast('Bozuk yedek dosyası — dosyayı kontrol et.', 'err'); }
+    }; r.readAsText(f);
+  }
+  document.getElementById('btnFactoryReset').addEventListener('click', async ()=>{
+      if(prompt("HER ŞEY SİLİNECEK! Onaylıyorsan büyük harfle SİL yaz:") !== "SİL") return;
+      toast('Hesap verileri siliniyor...');
+      await Promise.all([
+        sb.from('filaments').delete().neq('id', 0),
+        sb.from('printers').delete().neq('id', 0),
+        sb.from('designs').delete().neq('id', 0),
+        sb.from('sales').delete().neq('id', 0),
+        sb.from('notifs').delete().neq('id', 0),
+        sb.from('biz_info').delete().eq('user_id', currentUser.id),
+      ]);
+      location.reload();
+  });
+
+  function openImg(b64) { document.getElementById('modalImgFull').src="data:image/png;base64,"+b64; document.getElementById('imageModal').classList.remove('hidden'); requestAnimationFrame(()=>document.getElementById('imageModal').classList.remove('opacity-0')); }
+  function closeImageModal() { document.getElementById('imageModal').classList.add('opacity-0'); setTimeout(()=>document.getElementById('imageModal').classList.add('hidden'),300); }
+
+  // --- 9. TEMA ---
+  function toggleTheme() {
+    document.body.classList.toggle('light');
+    localStorage.setItem('erp_theme', document.body.classList.contains('light') ? 'light' : 'dark');
+  }
+  if(localStorage.getItem('erp_theme') === 'light') document.body.classList.add('light');
+
+  // --- 10. İŞLETME BİLGİLERİ ---
+  let bizInfoCache = {};
+  async function loadBizInfo() {
+    const { data } = await sb.from('biz_info').select('*').maybeSingle();
+    const b = data || {};
+    bizInfoCache = b;
+    if(document.getElementById('bizName')) {
+      document.getElementById('bizName').value = b.name || '';
+      document.getElementById('bizPhone').value = b.phone || '';
+      document.getElementById('bizEmail').value = b.email || '';
+      document.getElementById('bizIban').value = b.iban || '';
+      document.getElementById('bizAddress').value = b.address || '';
+    }
+    return b;
+  }
+  async function saveBizInfo() {
+    const b = { user_id: currentUser.id, name: document.getElementById('bizName').value, phone: document.getElementById('bizPhone').value, email: document.getElementById('bizEmail').value, iban: document.getElementById('bizIban').value, address: document.getElementById('bizAddress').value };
+    const { error } = await sb.from('biz_info').upsert(b);
+    if(error) return toast('Kaydetme hatası: ' + error.message, 'err');
+    bizInfoCache = b;
+    toast('İşletme bilgileri kaydedildi.');
+  }
+
+
+  // --- FONT YÜKLEME (jsPDF için Türkçe karakter desteği) ---
+  const PDF_FONT_REGULAR = "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AEX/0gBT/9QAVP/IAFX/1gBY/98AWf/iAGP/zgBz/8kAeP/HAHz/twACAFf/2ABs/8IAAQBK/+gAEAA7/9MAPv/oAFP/3ABU/7oAVf/dAFj/4gBZ/9sAcf9fAHL/uQBz/9YAdf/RAHj/pQB5/7AAev9eAHv/aAB8/7EAEQAN/98AU//XAFT/swBV/9gAV/+5AFj/2gBZ/9QAZf+AAG//QABx/3QAcv+6AHP/0wB4/0AAef+tAHr/JgB7/xUAfP8OAAMAV//RAGz/wwB8/9QABABU/8AAVf/xAFf/5gBz/9MAAQBX/9cAAQBz/9wABABFAAAAUwAAAFgAGQB1//4AGgAq/5gAMf+hADj/jAA5/4wAO//QADz/jAA9/5gAPv+MAEP/ogBE/8IARf/OAEr/ogBT/+EAVP+DAFX/3gBY/+gAY/+nAHH/ggBy/7kAc/+9AHX/1QB4/6AAef+zAHr/bQB7/2gAfP+9AAEAe//VAA8AJv/TADj/2gA5/9oAPP/aAD7/2gBF/9cASv/FAFP/4wBU/68AVf/kAFj/5QBx/7MAc//CAHj/wgB6/7gACQA4/+AAOf/gADz/4AA+/+AARf/WAFP/4ABU/7YAVf/kAHP/wgALAD7/6ABT/+IAVP/HAFX/5gBY/+kAcf+FAHL/xgB4/7EAef+/AHr/ngB8/7cAFAA4/54AOf+eADz/ngA+/54AQ/+zAET/uwBF/9EAU//bAFT/fwBV/+MAWP/cAFn/4ABj/7QAcf+VAHL/tQBz/7kAeP+yAHr/ogB7/4MAfP+8AAsAU//lAFT/uABV/+YAWP/rAFn/6wBx/5kAcv/GAHX/3AB4/7QAev+kAHz/uwAMABz/mgBG/+wAU//sAFf/tgBl/7IAav/GAGz/1QBv/7QAcP+0AHj/4AB7/9kAfP+4AAQARv/1AFf/tABs/8QAfP+3AAUAV/+1AGr/sQBs/7sAeP/mAHz/vAAGAEn/8gBX/7AAbP/AAHj/8wB7/+gAfP+4AAEAVP/FAAcAU//sAFf/swBl/7IAbP/SAHj/4AB7/9kAfP+4AAQAbP/oAHj/5gB7/9gAfP/SAAwAJf/9AEgAAABJAAAASgAAAFv/3ABc/9UAXf/UAGT/3QBm/88Aav/zAG8AIwBwACMAAQA0AAAABgAo/+IAK//iAFT/xABX/7wAc//eAHv/vAAGAFf/swBl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ABIAGAAKAAoACgANAA4ANgANABUADAAMAAwADAAOACAALQA0ADMAKAAnACAAMQAmACwAAAAqABsAGwAaABoAHAAwACQAAAAyAAAAKQAAADUAHgAuAAAAAAAAACUAHwAfAAAAAAAAAAAAAAAAABkAAAAAAAAAAAAAAC8AAAABAAAACgCYAPoAAkRGTFQADmxhdG4AEgAyAAAALgAHQVpFIAA2Q1JUIABAS0FaIABKTU9MIABUUk9NIABeVEFUIABoVFJLIAByAAD//wABAAAAAP//AAIAAAABAAD//wACAAAAAgAA//8AAgAAAAMAAP//AAIAAAAEAAD//wACAAAABQAA//8AAgAAAAYAAP//AAIAAAAHAAhsaWdhADJsb2NsADhsb2NsAD5sb2NsAERsb2NsAEpsb2NsAFBsb2NsAFZsb2NsAFwAAAABAAcAAAABAAAAAAABAAEAAAABAAIAAAABAAYAAAABAAUAAAABAAMAAAABAAQACAASABIAEgASABIAJgAmADwAAQAAAAEACAABAAYAAwABAAEAMAABAAAAAQAIAAEABgABAAEAAgAaAEAABAAIAAEACAABAFQABAAOADQAQABKAAQACgASABoAIABLAAMALAAwAEwAAwAsADcATQACADAATgACADcAAQAEAE8AAwBHAEcAAQAEAFsAAgB5AAEABABxAAIAZgABAAQALABHAGYAegAAAAEAAQAIAAMAAAAUAAMAAAAsAAJ3ZHRoAQwAAHdnaHQBDQABaXRhbAEVAAIABgASACIAAQAAAAIBFABkAAAAAwABAAIBDgGQAAACvAAAAAMAAgACARYAAAAAAAEAAAAA";
+  const PDF_FONT_BOLD = "AAEAAAAQAQAABAAAR0RFRgz/E/YAACp8AAAA6EdQT1PLTuO0AAArZAAALPJHU1VCLD8cfAAAWFgAAAGeT1MvMmDdfAkAACX4AAAAYFNUQVRfCEGhAABZ+AAAAFpjbWFwFs83+wAAJlgAAAFqZ2FzcAAAABAAACp0AAAACGdseWZRqsZ2AAABDAAAIUhoZWFkJoxkqgAAI4QAAAA2aGhlYQvaBfYAACXUAAAAJGhtdHgkuxIuAAAjvAAAAhhsb2NhJM8b1QAAInQAAAEObWF4cACYAJ4AACJUAAAAIG5hbWVENGKBAAAnzAAAAohwb3N0/08AJgAAKlQAAAAgcHJlcGgGjIUAACfEAAAABwADABgAAALIAtAAAwAHAAsAAHMBMwMhAzMBASEVIRgBAoTtAXfsigEC/dgBlP5sAtD9MALQ/TABF3j//wAYAAACyAO2BiYAAQAAAAcAgQBoANIAAgAyAAACawLQACQAKAAAczUzMjY1NCYjIzUzMjY1NCYjIzUzMhYVFAYGIzcyFhYVFAYGIyERMxGwujIzNzO1rS8xLy6w0WB2MlQ0BThbNjdjQ/6kmm43MTI6bi0sLC1uYlQ1TCgVMFc7O1kwAtD9MAAAAQAe//YC1gLaACEAAEUiLgI1ND4CMzIWFhcjJiYjIgYGFRQWFjMyNjczDgIBh06EYTY1YYRPWY9bCpYNZEU9XTQ1Xj1BZA+YDVyOCjdkiVFRhmM1RX1UTU86bU1OcT1OTVR9RAD//wAe/ykC1gLaBiYABAAAAAcAhAC2AAAAAgAyAAAC1gLQABUAGQAAczUzMjY2NTQmJiMjNTMyFhYVFAYGIyERMxGQtk5tOThtT7OzebRjZLN4/uuaeD9uR0ZqPHhXoW5uo1kC0P0wAAAEADIAAAJKAtAAAwAHAAsADwAAcxEzESM1IRUBNSEVATUhFTKaUgHQ/jABrf5TAcQC0P0wdnYBNnR0ASR2dgAAAwAyAAACLgLQAAMABwALAABzETMRAzUhFQE1IRUymlIBnf5jAbQC0P0wARd2dgFDdnYAAAIAHv/2AtUC2gAeACUAAEUiJiY1NDY2MzIWFhcjJiYjIgYGFRQWFjMyNjcXBgY3NRcjNSERAZZ1qFtco2xZjVcImgpbRD9eNDRlSjxUFpI6mTkfvgE5Clymb26nXkBvSTtDO25NUHE7Hhs6Oj13xh92/uP//wAe//YC1QO2BiYACQAAAAcAggCeANIAAwAyAAACngLQAAMABwALAABzETMRIREzEQEhFSEymgE4mv3cAdD+MALQ/TAC0P0wAbJ2AAEAMgAAAMwC0AADAABzETMRMpoC0P0w////swAAAUsDtgYmAAwAAAAHAIH/dwDS//8ALwAAAM8DtgYmAAwAAAAHAH//8wDSAAEACv/2AW0C0AAPAABXIiYnNRYWMzI2NREzERQGhiZGEBIyGjgzmnYKCwh2BwolMQIM/e1kYwAAAwAyAAACwALQAAMABwALAABzETMRAwEzARMBMwEymjEBRM3+qpn+qr0BagLQ/TABdgFa/qb+igF2/ooAAgAyAAACJgLQAAMABwAAcxEzESM1IRUymlIBrALQ/TB2dgAAAQAyAAADTALQAA8AAHMRMxMjEzMRIxEzAyMDMxEy8MhXyPGYGsOfwRkC0P1KArb9MAKl/VsCn/1hAAEAMgAAAp4C0AALAABzETMBBxEzESMBNxEyxwFAMZbH/sAxAtD9hAwCiP0wAnwM/XgAAgAe//YDAALaABEAIQAARSIuAjU0NjYzMhYWFRQOAicyNjY1NCYmIyIGBhUUFhYBj1CHYzdep2ttpl83Y4dRP2A3NmBAP2A1NmAKNmOJU26lXFymblKJYzZ6QHFLSm48PG1LTHE/AP//AB7/9gMAA7YGJgAUAAAABwB+AJAA0gABADIAAAKKAtAAFQAAcxEhMhYWFRQGBiMjNTMyNjU0JiMjETIBVlBzP0BzT9zUNTs7NbQC0DhkQ0NmOXY7MDA6/aYAAAMAHv/2AyUC2gAQACAAKAAARSImJjU0NjYzMhYWFRQGBgcnMjY2NTQmJiMiBgYVFBYWFzUlFSIOAgGPa6dfXqdrbaZfLWNRkT9gNzZgQD9gNTZgPwGWQGVaXgpeqG9upVxcpm5GfFoWMj50UEpuPDxtS1FzPnRsFHYDBAMAAAIALgAAApQC0AAVABkAAHMRITIWFhUUBgYjIzUzMjY1NCYjIxEzATMBLgFCTnRAQHROyMQ3Ozo4pPz+36MBTgLQNWBAP181cTMuLzH9pgF2/ooAAAEAGP/3AnYC2wAoAABFIiYnMxYWMzI2NTQmJycmJjU0NjYzMhYXIyYmIyIGFRQWFxcWFhUUBgFajKgOlAdiTD5DKDGGZ19DelJ+lgqUCk08ND4iNoZqXZYJfXI6QywlIysNJR1lTEFfM3diNTIoIhorDyUdZU1sdAD//wAY/ykCdgLbBiYAGQAAAAcAhACPAAD//wAY/qICdgLbBiYAGQAAAAcAgwDJAAAAAQAYAAACiALQAAcAAGERIzUhFSMRAQPrAnDrAlp2dv2mAAEAKv/2ApIC0AARAABFIiY1ETMRFBYzMjY1ETMRFAYBXZqZmlJISFKamgqpogGP/lZeWFhdAav+b6Cp//8AKv/2ApIDtgYmAB0AAAAHAIEAVgDS//8AKv/2ApIDtgYmAB0AAAAHAH4AXwDSAAEAGAAAAsgC0AAHAABhATMTIxMzAQEa/v6gxRPGmP7+AtD9qAJY/TAAAAEAIgAABBwC0AAPAABzAzMTIxMzEyMTMwMjAzMD7cucqDGWr5QwqZXLrJkomwLQ/W0Ck/1tApP9MAKG/XoAAwAUAAACuALQAAUACQANAABhAwEzEwEBEzMBBwMjAQIEx/7qtLsBIv6bwqP+zhC/owEvATsBlf7X/lkBqAEo/lcE/t0BpAAAAQALAAACvQLQAAkAAGERATMTIxMzAREBF/70udRX06n+9AEjAa3+gwF9/lP+3QAAAQAoAAACVwLQAAsAAHM1ARchNSEVASchFSgBjiX+WwId/ngjAa9oAis5dmj93DJ2AAACACX/9gITAggAFgAsAABhJiY1IzU0JiMiBgcjNjYzMhYVFRQWFwUiJjU0Njc3FQcGBhUUFjMyNjUXBgYBfQYFBCkoJi0Hjwp6am50Bwj+uExaa2CVfCgmJB4vQg4WWhYyIfEfIxoZRVpiXOEZMx0KTUBHVw0VVxMGIBwZGjMiUDk6AP//ACX/9gITAuQGJgAlAAAABgCBHgAAAgA8//YCXALQABQAIAAARSImJzcVIxEzESc2NjMyFhYVFAYGJzI2NTQmIyIGFRQWAXNJWwgIk5YJC19IRWU3OmhxNUJDNjRDQwpEOwF2AtD+vQI4QUF2UFF4QnhMRkZKS0ZGSwAAAQAU//YCIAIIAB8AAEUiJiY1NDY2MzIWFhcjJiYjIgYGFRQWFjMyNjczDgIBI1B6RUV6UENrRQqRCzkmJDUcHDUkJjkLkQpFawpEeE1NeEQxVjolJiRCLS1CJCYlOlYxAP//ABT/KQIgAggGJgAoAAAABgCEUAAAAgAY//YCOALQABQAIAAAYTUXBgYjIiYmNTQ2NjMyFhcHETMRJTI2NTQmIyIGFRQWAaUKCmNFRmc4OmlGSVsIC5b+9TVCQzY0Q0NxAjdCQXZQUXhCRDsBAUj9MG5LRkZLTEZGSgAAAQAU//YCKgIIACIAAEUiJiY1NDY2MzIWFhUUBgchNSEHNCYjIgYVFBYzMjY3MwYGASxVfkVFfFJPdEACAv5GAUEaOzM7QUFBJDQNjRl5CkN4Tk93Q0ByTRAbDGMSPjtQUE5MGBtKVQACAA4AAAFsAtoADwATAABzETQ2MzIWFxUmJiMiBhURAzUhFWNkYhUfDwcUDiYk6wFTAiBcXgQFcwMDJCL94gGMcnIAAAIAGP8pAjgCCAAgACwAAEUiJiczFhYzMjY1NRcGBiMiJiY1NDY2MzIWFwc1MxEUBgMyNjU0JiMiBhUUFgEnaoUMjgg1KUQ+CApgR0RlODppRkhbCAeTknk1QkM2NEND11pNExQ0N28COEE/ck1OdEBEOwF2/hhufwFSSURESUpEREgA//8AGP8pAjgC5AYmAC0AAAAGAIJBAAACADwAAAI1AtAAAwAUAABzETMRMxE0JiMiBgYVJzY2MzIWFRE8ls0rKSM3Hw0ZYUdVWgLQ/TABPCoqIDgmezhDX1D+pwD//wA3AAAA1wLkBiYAMQAAAAYAf/sAAAEAPAAAANIB/gADAABzETMRPJYB/v4C////uwAAAVMC5AYmADEAAAAHAIH/fwAA//8ANwAAANcC5AYmADEAAAAGAH/7AP///+L/KQDXAuQGJgA1AAAABgB/+wAAAf/i/ykA0gH+AA8AAFciJic1FhYzMjY1ETMRFAYgER4PCBIKGhyWV9cFBHMDAxkZAi390U1ZAAACADwAAAI1AtAAAwAKAABzETMRMwM3MwM3EzyWsdTPrfMH9gLQ/TABCfX+9C/+3wABADwAAADSAtAAAwAAcxEzETyWAtD9MAADADwAAAOAAggABQAWACcAAHMRMxUzETMRNCYjIgYGFSc2NjMyFhURMxE0JiMiBgYVJzY2MzIWFRE8kwPBKSUgNR4NGV9DUFnBKSUgNR4XGWNGU1kB/nj+egFEJyUdNSRzOENaRP6WAUQnJR01JHM4Q11L/qAAAgA8AAACNQIIAAUAFgAAcxEzFTMRMxE0JiMiBgYVJzY2MzIWFRE8kwPNKykjNx8NGWFHVVoB/nj+egE8KiogOCZ7OENfUP6nAAACABT/9gJIAggADwAdAABFIiYmNTQ2NjMyFhYVFAYGJzI2NjU0JiMiBhUUFhYBLlR/R0d/VFV/Rkd/VCM5Ikk1NUkiOQpDeU9PdkJCdk9PeUN2JEMvRUtMRC9DJAD//wAU//YCSALkBiYAOgAAAAYAfi8AAAIAPP8zAlwCCAAUACAAAEUiJic3ESMRMxUnNjYzMhYWFRQGBicyNjU0JiMiBhUUFgFzSVgICJaTCQtiSEVlNzpocTVCQzY0Q0MKRDsB/r0Cy3ECOEFBdlBReEJ4TEZGSktGRksAAAIAGP8zAjgCCAAUACAAAEURFwYGIyImJjU0NjYzMhYXBzUzEQEyNjU0JiMiBhUUFgGiDQpjRUZnODppRklbCAiT/vU3QEE4N0BBzQE+AjdCQXZQUXhCRDsBdv01ATtLRkZLTEZGSgAAAgA8AAABggIIAAUAEgAAcxEzFTMRESc2NjMyFxUmJiMiBjyTAw0SUj0TCQUSDUhEAf54/noBCnlBRASMAgEzAAEAEP/2AeoCCAAnAABFIiYnMxYWMzI2NTQmJycmJjU0NjMyFhcjJiYjIgYVFBYXFxYWFRQGAQpwhAaGBTs0LysZIVJbVnJmZXgGhgQwLCgnICVcTU91ClpPIiMbGRMVBxETTT1KU1FIGhsXFRIVCBMQVztLU///ABD/KQHqAggGJgA/AAAABgCEPAD//wAQ/qIB6gIIBiYAPwAAAAcAgwB2AAAAAgAO//UBhwKoAA8AEwAARSImNRE3ERQWMzI2NxUGBgE1IRUBLmJfliYoDxoNDS/+wwF5C19hAbs4/ggiIgYEcgcIAZdycgAAAgA2//YCJwH+ABEAFwAAVyImJjURMxEUFjMyNjY1FwYGNzUjETMR4TZNKJYqJiI0Hw0ZYG8DlgovTzEBWf7EKiogOSV7N0QKeAGG/gL//wA2//YCJwLkBiYAQwAAAAYAgSoA//8ANv/2AicC5AYmAEMAAAAGAH4zAAAB//4AAAIhAf4ABwAAcwMzEyMTMwPHyaGdVJydyQH+/iQB3P4CAAEACgAAAyYB/gAPAABzAzMTIxMzEyMTMwMjAzMDppyeTgRijGMETZqckGQEZAH+/pwBZP6cAWT+AgFj/p0AAwAYAAACRQH+AAUACQANAABhJwMzFxMBNzMDBwcjEwGdl9moh+n+zYek5A2Ro+3gAR7J/ssBPcH+1gjMATUAAAL//v8zAiEB/gAFAAkAAFcTNxMzAScDMxNWjRqEoP7LKsSioc0BOCsBaP011wH0/jgAAQAsAAAB4gH+AAsAAHM1ARchNSEVASchFSwBHB7+zgGq/uocATZoAVk1cmj+ri5yAAAFAA4AAAONAtoADwAfACMAJwArAABzETQ2MzIWFxUmJiMiBhURMxE0NjMyFhcVJiYjIgYVETMRMxEBNSEVJzUzFWNkYhUfDwcUDiYktGRiFR8PBxQOJiS0lvyBAw0klgIgXF4EBX0DAyQi/ewCIFxeBAV9AwMkIv3sAf7+AgGMcnKrmZkAAAQADgAAA40C0AALABsAHwAjAABhETQ2MzMVIyIGFREhETQ2MzIWFxUmJiMiBhURAzUhFRMRMxEBrWRi1LomJP4gZGIVHw8HFA4mJOsClFWWAhZcXoAkIv32AhZcXgQFfQMDJCL99gGCfHz+fgLQ/TAAAAQADgAAAkMC2gAPABMAFwAbAABzETQ2MzIWFxUmJiMiBhURMxEzEQE1IRUnNTMVY2RiFR8PBxQOJiS0lv3LAcMklgIgXF4EBX0DAyQi/ewB/v4CAYJ8fLWZmQAAAwAOAAACQwLQAAsADwATAABzETQ2MzMVIyIGFREDNSEVExEzEWNkYtS6JiTrAUpVlgIWXF6AJCL99gGCfHz+fgLQ/TAAAAEACgAACFoB/gAvAABzAzMTIxMzEyMTMxMjEzMTIxMzEyMTMxMjEzMDIwMzAyMDMwMjAzMDIwMzAyMDMwOmnJ5OBGKMYwRijGMEYoxjBGKMYwRijGMETZqckGQEZIlkBGSJZARkiWQEZIlkBGQB/v6cAWT+nAFk/pwBZP6cAWT+nAFk/pwBZP4CAWP+nQFj/p0BY/6dAWP+nQFj/p0AAgAe//YCjALaAA8AHwAARSImJjU0NjYzMhYWFRQGBicyNjY1NCYmIyIGBhUUFhYBVVqNUFCNWluMUFCNWjNCICBCMzNCICBDCl+pbW2lXV2lbW6oX4BEcEJCbEBBbEFDcEMAAAEACgAAAU8C0AANAABzERcOAgc1PgI3MxG5EQ84Sy4lUEEOgQJMDx81JQmWBSc3HP0wAAABABIAAAIjAtoAGwAAczU+AzU0JiMiBgcjNjYzMhYVFA4CBychFRljhU8iLyosOgeaC5BydIIhTINiJQGFeFF1WkolLDE2L2Z1d2oyXGJ1Sy12AAABABT/9gIuAtoALwAARSImJiczFhYzMjY1NCYjIzUzMjY1NCYjIgYHIz4CMzIWFhUUBgYjJzIWFhUUBgYBKkx5SwaZCDwzLDs5REA9OzQoMCk8B5oJRHJMTG08LkUjATVMKER2CjdrTT47NDIwO3Q0KCYxMjNEYjUvVjwyTCoVM1U0QWAzAAEAGAAAAloC0AANAABhNTcRFwEnIRUhNQEzEQF2CD3+3EcCCv2+AWKYvhQBmyH+fTV2dgHS/TAAAQAY//YCLQLQACIAAEUiJiczFhYzMjY1NCYjIgYHIxMhFSE3Byc2NjMyFhYVFAYGASZvjhGZCEApLzk2LxswEIwlAZ7+mFISMhpLOkVoOkJ2CnJnLjVBQj9DGRwBlHYL4QcpKzxsSk5uOwAAAgAe//YCVwLaAB4AKwAARSImNTQ2NjMyFhcjJiYjIgYVFSc+AjMyFhYVFAYGJzI2NTQmIyIGFRQWFgFHjptLil1phQ+ZBTcpSUgfCzhVNUZqO0N6XjNFRzM0SCM5Crmpd61eb2IsL36EQQkwRiY5Z0VHajp2Ozk5OTk3JTUcAAABABgAAAIrAtAADAAAczYSNxUhNSEVDgIHlQ+La/5+AhNEZj4JqwE9hRN2bmHEzXAAAAMAHP/2AkIC2gAhAC0AOQAARSImJjU0NjYzFyImJjU0NjYzMhYWFRQGBiM3MhYWFRQGBicyNjU0JiMiBhUUFhMyNjU0JiMiBhUUFgEwUnxGL1U4EDtSKz9yTk5yPytSPBE4VS9Fe1M1Oz4yMz08NCk0NCopMzUKNmBANlQwFSdKMjxZMTFZPDJKJxUwVDdAYDV2ODMyODgyNDcBQTErKzAxKisxAAACABj/9gJSAtoAIQAuAABFIiYmJzMWFjMyPgI1NRcOAiMiJiY1NDY2MzIWFRQGBgMyNjU0JiYjIgYVFBYBJE5tPgiZBTYyJDEdDSkLOFU3RWk8RHpRkJtHh084OBkyJTc8PAo5ZUI1NR09YkZBATBGJjllQkZoOrmvdqtbAZA8LiA1H0EvLz8AAQA8AAoDKgLGAAoAAFMhBwEzAQEjARchPAKEW/6pvwFd/qO/AVdb/XwBrj4BVv6i/qIBVj4AAQA8AAAA4QClAAMAAHM1MxU8paWlAAEAPP9YAOEApQALAABXNTY2NRcjNTMVFAY+Lxw9iqVKqEkONisQpXVPcgD//wA8AAAA4QHqBiYAXAAAAAcAXAAAAUX//wA8/1gA4QHqBiYAXQAAAAcAXAAAAUUAAgBGAAAA7ALkAAMABwAAUwMzAwM1MxVcFqYWj6UBEgHS/i7+7qWlAAIAHAAAAjEC7gAdACEAAFM0PgQ1NCYjIgYHIz4CMzIWFhUUDgQVAzUzFecZKCwoGTMtN0cIkwpKeE5McD8bKTApG5ulARIvQCwiHiUZJic0MUNiNjBXOik8KyMjKRz+7qWlAAABACgBlwGRAuQAEQAAUzcHJzcnNxcnMwc3FwcXBycXnRxRQG1tQFEcgBxRP2xsP1EcAZdqTWweHWxNampNbB0ebE1qAAQAIAAAArwC0AADAAcACwAPAABzEzMDMxMzAwEhFSEHIRUhemSCZIBkgmT+OwKD/X0ZAoP9fQLQ/TAC0P0wAiN6eHoAAQAZ/7ABpAMCAAMAAFcBMwEZAQmC/vdQA1L8rgAAAQAZ/7ABpAMCAAMAAFMzASMZggEJggMC/K4AAAEAPADUAaoBTAADAAB3NSEVPAFu1Hh4AAEAPADZAiIBRwADAAB3NSEVPAHm2W5u//8AAP9WAeb/xAQHAGf/xP59AAEARv+SAaAC7gANAABFJiY1NDY3MwYGFRQWFwENZmFiZZNlZWhibl3ec3HfXl7XeXrXXQABACj/lgGCAvIADQAAUxYWFRQGByM2NjU0Jie7ZmFiZZNlZWhiAvJd3nNx315e13l6110AAQAe/5QBlgLuACYAAEUiJiY3NzYmIyM1MzI2JycmNjYzMxUjIgYXFxYGBxYWBwcGFjMzFQE0TlkdDBAMJjIiIjImDBAMHVlOYlohHwkUEDQ0NDQQFAkfIVpsMlc4SDU0djU0SDhXMnYqI0w7VA8PVDtMIyp2AAEAMv+UAaoC7gAmAABTMhYWBwcGFjMzFSMiBhcXFgYGIyM1MzI2JycmNjcmJjc3NiYjIzWUTlkeDRAMJjIiIjImDBANHllOYlohHwkUEDQ0NDQQFAkfIVoC7jJXOEg0NXY0NUg4VzJ2KiNMO1QPD1Q7TCMqdgABAFD/lAGWAu4ABwAAVxEhFSMRMxVQAUa4uGwDWnb9knYAAQAy/5QBeALuAAcAAEERITUzESM1AXj+uri4Au78pnYCbnb//wAyAaQBsALuBCYAcAAAAAcAcADWAAAAAQAyAaQA2gLuABAAAFMnJiY1NDY2MzIWFhUUBgcHbyYMCxElHh4lEQsMJgGkgSgzGRIoGxsoEhkzKIEAAQA8AAoDKgLGAAoAAEEhNwEjAQEzASchAyr9fFsBV7/+owFdv/6pWwKEASI+/qoBXgFe/qo+AAACAB7/9gNMAtoARABUAABFIiYmNTQ+AjMyFhYVFA4CIyImJjcHBgYjIiY1ND4CMzIWByc3MwcGFjMyPgI1NCYmIyIOAhUUFhYzMjY3FwYGAzI+AjU0JiMiDgIVFBYBr3q0Yzx1q3Brn1gnRFgwKTYUCgEWTjBATyE5SytBPQcJFoI3CwgVFiceET5zUFyHWCtIhFozZzMhMXZYFCEZDiQgFCIaDicKUpdnVpNuPUeAVjlqUzAiNyEVLjZdTTNbRSdFMgFU1CspHzVFJkVbLi9UckJNbzsUE1UWFwEMEiAsGiouEiErGistAAACABL/9gMAAtoAHwA6AABhAS4CNTQ2NjMyFhYVFAYHJzY2NTQmIyIGFRQWFhcBBSImJjU0NjcXDgIVFBYzMj4CNTMUDgMCQP6MICQONF4+PF83W1ZHPzcmJiUjDS4vAZD+MVaBSHNyRTpBGU9IL1pKLI0pSmZ8AYwjNjEcLkwuK083PmkdVRY8Ih0pKhcQJDkx/msKNl49VnEkVxQqLRowNhxAak5GemNGJQAAAQAy/34AtAMWAAMAAFcRMxEygoIDmPxoAAADABj/kwJ2Az4AAwAHADAAAEE1MxURFSM1FyImJzMWFjMyNjU0JicnJiY1NDY2MzIWFyMmJiMiBhUUFhcXFhYVFAYBE3p6R4yoDpQHYkw+QygxhmdfQ3pSfpYKlApNPDQ+IjaGal2WAriGhv1cgYEdfXI6QywlIysNJR1lTEFfM3diNTIoIhorDyUdZU1sdAADAAD/9gK6AtoAIQAlACkAAEUiLgI1ND4CMzIWFhcjJiYjIgYGFRQWFjMyNjczDgIBNyEHBTchBwGVSntZMTBZe0tMeFEQng5ENzVQLC1RNTVBD6ARUnf+IBAB4RD+HxAByRAKN2SJUVGGYzUzXUAsLDxuTE1zPissQF0yAYhiYoxiYgACADIAhQH1AmIAAwAHAAB3ETMRJTUhFdxw/uYBw4UB3f4juGxsAAIAMgDZAfUCDQADAAcAAFM1IRUFNSEVMgHD/j0BwwGhbGzIbGwAAQAyAKIB9QJEAAcAAHc1JRUlNQUVMgFN/rMBw6JzaRZpc5Z2AAABADIAogH1AkQABwAAQRUFNQUVJTUB9f6zAU3+PQJEc2kWaXOWdgAAAf/4AQsCMAHAABkAAEEyNjY3IwYGIyIuAiMiBgYHMzY2MzIeAgGKLEguBGIHJh0ZMDVAKStILgRiCCQeGjAzPwELJUw6GhsTGRMlSzsaGxMZEwAAAQA9AesB6gLkAAcAAFMjNzMXIyczrXCZe5lwk1kB6/n50AAABQAj//YC7wLaAAMAEwAfAC8AOwAAcwEzAQUiJiY1NDY2MzIWFhUUBgYnMjY1NCYjIgYVFBYBIiYmNTQ2NjMyFhYVFAYGJzI2NTQmIyIGFRQWSwIOc/3zAYwqSi4tSistSywuSysfKikgICcn/porSi0tSistSiwuSisfKikgICcnAtD9MAooUj8/USgoUT8/UihWMzEvMjIvMTMBHShSPz9RKChRPz9SKFYzMS8yMTAxMwAAAgA8AkEBwgLkAAMABwAAQTUzFSE1MxUBIqD+eqACQaOjo6MAAQA8AkIA3ALkAAMAAFM1MxU8oAJCoqIAAQA8AkcBZQLkAAMAAFMnMxfhpcZjAkednQABADwCRwHUAuQABwAAUzczFyMnMwc8fpx+fY18jQJHnZ1/fwABADwCPgGYAuQADwAAUyImJjUzFBYzMjY1MxQGBuozTi1kKCIjJ2QtTgI+K0wvHSEhHS9LLAABAET+ogDd/7UACwAAUzUyNjUXIzUzFRQGRCYkNX+ZU/6iQyonDIt0SFcAAAEAPP8pAUUADAAVAABXIiYnMxYWMzI2NTQmJzczBxYWFRQGxT5JAmICExALEiQyG1MLKy1C1zMtDQ4LCg4PA2krCi8kJjUA//8APAJHAWUC5AQGAIAAAAABAAAAhgBVAAcARwAGAAEAAAAAAAAAAAAAAAAABAABAAAAAAAdACkAYgCVAKEAyQDpAQMBPQFJAWMBbwF7AYcBowHBAdMB8AIJAj0CSQJrAqoC1AMRAx0DKQM6A1gDZANwA4UDpAPIA+AD+QQ7BEYEeQSqBLUE6AUcBT4FgAWLBa4FuQXFBdEF3AXnBgMGGwYnBmIGhwa2BsEG9AcoB0gHgweOB5oHvgflB/AH+wgOCC0ITQhmCH8Iwgj7CSkJTAmbCc0J5woRClQKcAqmCuYK/wtSC5YLlguxC7wL0gveC+oL/gwwDFIMdAyDDJEMnQypDLIMzAzmDSENXA1tDX8Niw2pDcUOOg6QDp0O5Q8nDzoPTQ9gD3QPng+wEAoQHBAoEDUQRxBiEHgQnBCkAAAAAQAAAAEAAPp/8kVfDzz1AAMD6AAAAADfCvx+AAAAAOBcJM3/s/6iCFoD2gABAAYAAgAAAAAAAAKUADIC4AAYAuAAGAKJADIC7gAeAu4AHgL0ADICcgAyAk4AMgL7AB4C+wAeAtAAMgD+ADIA/v+zAP4ALwGdAAoC0gAyAk4AMgN+ADIC0AAyAx4AHgMeAB4CoAAyAy8AHgKcAC4CjAAYAowAGAKMABgCoAAYArwAKgK8ACoCvAAqAuAAGAQ+ACICzAAUAsgACwJ7ACgCOwAlAjsAJQJ0ADwCMgAUAjIAFAJ0ABgCPgAUAXoADgJ0ABgCdAAYAmsAPAEOADcBDgA8AQ7/uwEOADcBDv/iAQ7/4gI5ADwBDgA8A7YAPAJrADwCXAAUAlwAFAJ0ADwCdAAYAY4APAH4ABAB+AAQAfgAEAGlAA4CYwA2AmMANgJjADYCH//+AzAACgJdABgCH//+AgoALAPEAA4DyQAOAmsADgJ/AA4IZAAKAqoAHgGBAAoCMwASAkYAFAJuABgCSQAYAm8AHgI/ABgCXgAcAnAAGAC+AAADUgA8AR0APAEdADwBHQA8AR0APAEyAEYCSwAcAbkAKALcACABvQAZAb0AGQHmADwCXgA8AeYAAAHIAEYByAAoAcgAHgHIADIByABQAcgAMgHiADIBDAAyA1IAPANqAB4DBgASAOYAMgKMABgC0gAAAicAMgInADICJwAyAicAMgIn//gCJwA9AxIAIwAAADwAAAA8AAAAPAAAADwAAAA8AAAARAAAADwBYgA8AAEAAAPK/wYAAAhk/7P+BQhaAAEAAAAAAAAAAAAAAAAAAACGAAQCTgK8AAUAAAKKAlgAAABLAooCWAAAAV4AJgEtAAAAAAAAAAAAAAAAAAAABwAAAAIAAAAAAAAAAE5PTkUAoAAgIKwDyv8GAAAD2gFeAAAAEAAAAAAB/gLQAAAAIAADAAAAAgAAAAMAAAAUAAMAAQAAABQABAFWAAAAJAAgAAQABAAvADkAfgDCAMcAzgDWANwA4gDnAO4A9gD8AR8BMQFfIKz//wAAACAAMAA6AMIAxwDOANYA2wDiAOcA7gD2APsBHgEwAV4grP//AAAAIAAA/0D/Pv8//z//Q/9E/0L/RP9F/0kAAAAAAADfygABACQAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAtAC2ALgAAAAAAFoAYABvAGMAdQB9AHMAcABpAGoAYgB3AF0AZgBcAGQAXgBfAHoAeAB5AGEAcgABAAMABAAGAAcACAAJAAsADAAPABAAEQASABMAFAAWABcAGAAZABwAHQAgACEAIgAjACQAbQBlAG4AfABoAIUAJQAnACgAKgArACwALQAvADAANAA2ADcAOAA5ADoAPAA9AD4APwBCAEMARgBHAEgASQBKAGsAdABsAHsACgAuAA4AMQAaAEAAALgB/4WwBI0AAAAADQCiAAMAAQQJAAAAxAAAAAMAAQQJAAEAHgDEAAMAAQQJAAIACADiAAMAAQQJAAMAPADqAAMAAQQJAAQAKAEmAAMAAQQJAAUAOgFOAAMAAQQJAAYAJgGIAAMAAQQJAQwACgGuAAMAAQQJAQ0ADAG4AAMAAQQJAREACADiAAMAAQQJARQADAHEAAMAAQQJARUADAHQAAMAAQQJARYACgHcAEMAbwBwAHkAcgBpAGcAaAB0ACAAMgAwADIAMgAgAFQAaABlACAASQBuAHMAdAByAHUAbQBlAG4AdAAgAFMAYQBuAHMAIABQAHIAbwBqAGUAYwB0ACAAQQB1AHQAaABvAHIAcwAgACgAaAB0AHQAcABzADoALwAvAGcAaQB0AGgAdQBiAC4AYwBvAG0ALwBJAG4AcwB0AHIAdQBtAGUAbgB0AC8AaQBuAHMAdAByAHUAbQBlAG4AdAAtAHMAYQBuAHMAKQBJAG4AcwB0AHIAdQBtAGUAbgB0ACAAUwBhAG4AcwBCAG8AbABkADEALgAwADAAMAA7AE4ATwBOAEUAOwBJAG4AcwB0AHIAdQBtAGUAbgB0AFMAYQBuAHMALQBCAG8AbABkAEkAbgBzAHQAcgB1AG0AZQBuAHQAIABTAGEAbgBzACAAQgBvAGwAZABWAGUAcgBzAGkAbwBuACAAMQAuADAAMAAwADsAZwBmAHQAbwBvAGwAcwBbADAALgA5AC4AMgA4AF0ASQBuAHMAdAByAHUAbQBlAG4AdABTAGEAbgBzAC0AQgBvAGwAZABXAGkAZAB0AGgAVwBlAGkAZwBoAHQATgBvAHIAbQBhAGwASQB0AGEAbABpAGMAUgBvAG0AYQBuAAMAAAAAAAD/TAAmAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAB//8ADwABAAAADAAAAIIAAAACABMAAQACAAEABAAHAAEACQAOAAEAEAARAAEAEwAVAAEAGAAfAAEAIQAhAAEAIwAmAAEAKAArAAEALQA0AAEANgA3AAEAOQA7AAEAPgBFAAEARwBHAAEASQBKAAEASwBPAAIAWwBbAAIAcQBxAAIAdQB1AAEAEgAHACQAMgBAAEgAUABeAF4AAQAHAEsATABNAE4ATwBbAHEAAgAGAAoAAQFBAAECgwACAAYACgABAUMAAQKGAAEABAABATYAAQAEAAEBQAACAAYACgABAswAAQWYAAEABAABAakAAQAAAAoAJAAyAAJERkxUAA5sYXRuAA4ABAAAAAD//wABAAAAAWtlcm4ACAAAAAEAAAABAAQACQAIAAIACgASAAEAAgAAABAAAQACAAALNAABALYABAAAAFYBXAGaAawBugHMAfYCIAIqAjACcgK4AsYC2ALeAuQC9gNgA2YDpAPKA/gESgR4BKoEvATSBOwE8gUQBSIFVAVaBXQFjgW4BeoF8AX+BhgGOgZYBnIGiAaWBrQGxgbQBtYG0AbWBuQG/gcwB04HZAeOB6gHugfIB9oH5AgOCBQIRghMCFIIdAh6CKAIvgj4CT4JTAlmCXAJggmwCdIJ4AoKCjwKSgpQCrIK6AsGAAIAGwABAAEAAAADAAQAAQAGAAkAAwANAA0ABwAQABEACAAUABQACgAWABkACwAcAB0ADwAgACUAEQAnACgAFwArACwAGQAvADAAGwAyADIAHQA0ADQAHgA2ADYAHwA4ADwAIAA+AD8AJQBCAEMAJwBGAFEAKQBTAFkANQBbAFwAPABeAGAAPgBjAGYAQQBoAG0ARQBvAHMASwB2AHoAUAB8AHwAVQAPAA3/8wBT/+AAVP/oAFX/4wBX/7UAWP/oAFn/4QBl/4QAcf+XAHP/5AB1/9cAeP+8AHr/qAB7/7AAfP+AAAQAV//pAFgABQBZAAAAbP/PAAMAV//YAGz/wgB4//IABABT//cAV//IAGz/uABz//cACgBT/+0AVP/5AFX/7QBY/+8AWf/xAHL/3wBz/+sAeP/LAHv/yAB8/7cACgBF/94AU//uAFT/5wBV/98AWP/sAFn/8wBj/9wAc//gAHj/2AB8/8IAAgBX/9UAbP/CAAEASv/1ABAAO//GAD7/9ABT/9QAVP/BAFX/0wBY/9QAWf/TAHH/XABy/6gAc//JAHX/wAB4/4YAef+kAHr/WQB7/2kAfP+VABEADf/0AFP/5wBU//kAVf/kAFf/rQBY/+gAWf/dAGX/dQBv/ykAcf9nAHL/xwBz/+MAeP+PAHn/xgB6/00Ae/9IAHz/FQADAFf/ywBs/7oAfP/OAAQAVP/HAFX/7gBX//oAc//YAAEAV//TAAEAc//cAAQARf/+AFMADABYAA4AdQAAABoAKv+KADH/pQA4/5QAOf+UADv/zwA8/5QAPf+KAD7/lABD/6YARP/GAEX/zQBK/6YAU//yAFT/iABV/90AWP/pAGP/wABx/24Acv+9AHP/uwB1/9QAeP+sAHn/2gB6/3gAe/9fAHz/xwABAHv/4wAPACb/vgA4/9AAOf/QADz/0AA+/9AARf/SAEr/vgBT/+EAVP+qAFX/3wBY/+AAcf+XAHP/uAB4/8MAev+uAAkAOP/UADn/1AA8/9QAPv/UAEX/0gBT/+MAVP+2AFX/2QBz/7sACwA+//QAU//aAFT/0gBV/+IAWP/eAHH/cQBy/70AeP+jAHn/ugB6/4AAfP+rABQAOP+sADn/rAA8/6wAPv+sAEP/qABE/7EARf/KAFP/1QBU/30AVf/dAFj/1ABZ/9oAY/+0AHH/cwBy/7IAc/+nAHj/sAB6/40Ae/9zAHz/twALAFP/8ABU//sAVf/uAFj/9ABZ//UAcf+DAHL/zQB1/+EAeP/DAHr/nAB8/78ADAAc/3kARv/eAFP/6ABX/6MAZf+kAGr/sgBs/8sAb/+gAHD/oAB4/9cAe//PAHz/qAAEAEb/8gBX/6sAbP+4AHz/sgAFAFf/oABq/5kAbP+7AHj/7gB8/7QABgBJ//EAV/+pAGz/uQB4//QAe//sAHz/sAABAFT/0AAHAFP/8gBX/6wAZf+wAGz/zQB4/+EAe//aAHz/tAAEAGz/6gB4/+MAe//ZAHz/1QAMACX/8ABI/+QASf/2AEr/8QBb/9oAXP/cAF3/3ABk/9sAZv/XAGr/6QBvAAAAcAAAAAEANAAAAAYAKP/bACv/2wBU/8wAV/+4AHP/2gB7/6sABgBX/6wAZf+wAGz/zQB4/+EAe//bAHz/tQAKADoAAABG/+oAU//yAFf/rABl/7AAbP/NAHL/+AB4/+EAe//aAHz/tAAMABz/iwA6AAAASf/wAFf/qwBq/5kAbP+4AG7/sABv/7AAcP+wAHj/9AB7/+wAfP+sAAEAOwAAAAMAV/+rAGz/uAB8/7IABgA6//gAVP/SAFf/sQBs/6sAc//cAHv/1QAIACgAEQArABIANAAAAFf/tQBs/84AeP/xAHv/4AB8/8EABwAo/+0AK//uAFT/8wBX/70AbP/aAHj/8QB7/8wABgAc/6UAV/+sAGz/ygBw/8QAe//XAHz/xwAFACv/8AA6//AAVP/XAFf/pgBs/60AAwBX/6YAbP+uAHv/1QAHAFT/xgBV/9wAV/+sAFj/5QBs/+EAeP/fAHz/1AAEAFf/pgBs/6oAc//gAHv/0QACAFf/qwB7/8oAAQBh/+AAAwBi/+IAaP/BAHv/1wAGABz/pgAi/7MAI//CAFf/pgBo/5wAbP+uAAwAMgAAAFAACwBT//oAVgAOAFf/0ABY//4AWQAAAGj/gwBs/70AdgALAHv/7AB8/9AABwAB//MAA//1ACX/9gArAAQAPwAAAEj/6gBs/+UABQAB/+sABAAAACL/4QBI/+EAbP/UAAoAAf/rABz/4gAg/90AIf/dACL/4gAj/94AQv/uAEj/1ABJ/+0AbP/RAAYAAf/mAEL/6QBG/+gASP/OAGz/1gB8/6sABAAB/+kAHP/uAEj/4gBWAAUAAwBW/+gAaP9tAHv/lgAEAAH/6AAc/+kAQv/1AEj/3gACAGj/iABs/8IACgAB/5cAD/96ABz/bgAg/5cAIv9tACP/cwAk/4MAV/9uAGr/YAB5/7YAAQBh/4QADAAc/4QAIP+6ACP/owBQ//MAUf/zAFP/6wBU/+kAVf/tAFf/pQBp/9oAav+0AG//wwABAGr/ygABAGH/2AAIAAH/wAAP/8YAHP/aACX/4QBU//AAVf/oAFf/2gBq/68AAQB1/8sACQAc/4AAIP9/ACH/hQAj/3cALP/IAEL/ugBi/4MAb/+DAHD/gwAHAA3/3gAy/9cAYf9sAGz/iQBv/4sAcP+LAHX/2AAOAFD/gwBR/5MAU/+XAFT/MQBV/5gAVv+MAFf/pABY/5kAWf+XAGL/JABoACcAaf+hAG//DwBw/3oAEQAN//sAMv/qADQAAABF/7EARv+dAGH/rQBj/5YAcf9gAHL/kABz/6AAdf+pAHb/ngB4/4oAef+XAHr/egB7/2gAfP+QAAMAbP+pAHj/2QB8/7oABgBQ/70AUf/XAFT/pQBb/4oAZv+JAGn/qAACAGr/owBs/8AABABG/5EAY/+tAHj/jwB7/2wACwAP/4gAMgAAAFz/cgBd/3IAY//NAGb/iwBo/w8Acv/EAHX/zgB4/84Ae/+XAAgADf/xAA//iAAyAAAAQ//IAFz/egBd/3oAZv+LAGj/egADAA3/3wAy/9oAdf/NAAoAAf+4AA//pwAc/9EAIv+4ACT/ywAl/+EAKv/xAC3/8QA///IAav+kAAwAA//1AAT/6QAJ/+oAFP/pABn/1AAc/4EAIP+eACH/qQAj/3wAJf/hAEL/4QBR/8oAAwBb/6UAZP/NAGr/sQABAHj/0wAYAAH/vAAD/+wAD/+qABn/6gAc/6wAIP/DACH/yAAi/5sAI/+wACT/uQAl/9gAP//nAEj/2ABR//gAU//nAFT/6wBV/+gAV/+5AGn/2ABq/4oAbv+PAG//zgBw/84AeP/sAA0AAf+oAA//iAAZ/8oAHP94ACD/rgAh/7YAIv97ACP/jQAk/5IASP/EAFf/cgBq/3oAef/QAAcAD//eABz/2gAi/7EAI//EACT/1QBq/5YAev/QAAkAU//ZAFT/iwBb/7MAXP9yAF3/cgBi/9QAZv9FAGn/uABq/5AAAh8AAAQAAB92IHYASAA3AAD/7v/3/+j/+v/9/+X//f/0/+j/7P/w//f/9v/1/+7/pf/6//n/wv/l/+//wv/w//b/3f/t/9z/3//p/9//xv/3//f/uf/g/9T/zAAAAAAAAP/X/9r/8gAA/+7/sAAA/9AAAP/YAAAAAP/B/+QAAP/5/+X/+P/p/+j/+//q//f/5P/g/+r/4v/b/9v/5P/7/+f/8f/u//n/7//9/+n/4P/T/+v/5P/p//n/z//h/+kABP/y//z/3//lAAAAAAAA/7//zQAAAAD/+//ZAAD/2wAA/+YAAAAA/8H/7QAA//z/+//2//H/8P+z//D//v/1//r/4wACAAAAAP/x/8b/7v/x/9//sP/6/6b/4wAA/+f/+f+k/+f/9//j/+L//P+x/9v/s//6/5MAAAAAAAD/yP/i//YAAAAA/5wAAAAAAAD/rgAAAAD/hv/+AAD/8//P/+X/5P/gAAD/4v/T/+X/2v/m/9L/tf+7/9v/gP/n/+3/kf/7//H/jf/m/8H/p//t/+X/3v/m/8b/hf/YAAD/ggAA/4T/4gAAAAAAAP+3/6b/5QAA/7j/vwAA/5AAAP/pAAAAAP/B//sAAP/5AAD/9wAAAAT/8wAE//n/7v/z//YAAP/8//r/+//8AAAAAP/1//b/9f/+//YAAAAA//X/4v/t//j/5f/mAAAAAv/0//b/6//rAAAAAAAA/97/3wAAAAAAAv/aAAD/6gAA/98AAAAA/8H/6gAA//kAAv/6AAAAAP/TAAAAAP/0//f/8wAAAAD//v/7AAAAAP/9//n/8f/uAAD/8gAA/+n/8v/M/+3/+v/p/+wAAv/m//z/6//w/+kAAAAAAAD/4f/kAAcAAAAF/9kAAP/wAAD/yAAAAAD/if/fAAD/8v/s/+r/9P/0/+f/9P/q/+r/5v/q/+H/3//g/+T/gf/0//L/r//l/+T/yf/q/93/1P/o/9r/3v/r/9j/vP/w//X/pv/h/6b/zAAAAAAAAP/R/8//6gAA/8v/xgAA/6sAAP/ZAAAAAP/B/98AAP/1//f/8v/6//3/5f/9//n/6P/s//D/9//2//X/8f/t//r/+f/o//H/7//x//D/9v/d/+7/3P/h//b/3//h//n/9//s/+b/5P/nAAAAAAAA/9f/2gAAAAD/9v/YAAD/3wAA/98AAAAA//T/5AAAAAAABf/3AAD//v/P//4AAv/3//v/8QAA//v//P/7/8H//gAA/9T/1f/t/8v/8QAA//D/8v/H/+b/+P/s/8wAC//X/9D/tv/d/7QAAAAAAAD/5//rAAAAAAAA/5UAAP/UAAD/xQAAAAD/eP/bAAD/8//3/+wAAAAA/+kAAP/0//r/7//z/+3/6//r//D/jP/+//7/u//o/+3/if/z/+r/3//z/+D/4//6/+L/rv/4//v/sf/m/7T/zQAAAAAAAP/b/9n/7AAA/9n/sgAA/7cAAP/cAAAAAP/B/+QAAAAE//7//QAKAAD/3wAAAAD//QAA//3/9v/w//L//P+PAAUAA//B/+T/6v/H//3/8f/p//T/3//o//7/7f+2AAL/9v+2/8j/r/+2AAAAAAAA//D/6//9AAD/1v+/AAD/rAAA/9cAAAAA/5X/0QAA//4AAP/2//z//v/a//4AAP/w//P/7AAAAAD//QAA/8n//P/x/9z/4//r/9j/6wAA/9b/7//U/+b/9//k/9YAA//t/9r/xf/n/8IAAAAAAAD/2P/SAAAAAAAA/6MAAP/mAAD/yQAAAAD/hf/eAAD//QAA//cACwAD/+oABQAA//f/+f/4//n//P/6AAD/ygAGAAD/1f/w/+7/0v/4//n/5v/t/9z/7P/3/+v/zgAGAAD/1P/b/9z/vgAAAAAAAP/m/+UAAAAAAAD/owAA/9oAAP/VAAAAAP+T/94AAAAAAAD/+wAA//7/7AAAAAL/+v/+//j/+wAA//0AAP/TAAD//v/i//f/7f/tAAD/+//a//L/4//s//v/7P/cAAUAAP/h/+D/6P/PAAAAAAAA/+7/3gAHAAAAAP+zAAD/7AAA/9kAAAAA/5v/5AAA//z/wf/s/5D/j/+A/8sAAP+lAAD/zP/F/8b/wv/JAAD/kf+WAAD/+v+pAAD/h//A/4z/o/9y/+T/8v+l/+v/x/+aAAAAAP/c/+8AAAAAAAD/Zf+IAA8AAP/r/+sAAP/YAAD/dwAAAAD/Y/+rAAAAAv/+//sACAAK/+QACv/+//sAAP/1//f/8f/y//z/kQAHAAX/wf/j/+v/jP/1//L/7f/1/97/6f/8/+z/swAA//v/t//O/7P/tgAAAAAAAP/w/+//+wAA/9r/nAAA/7IAAP/aAAAAAP+d/9MAAP/9//v/9P/8//3/4//+//n/9P/1//b//P/x//L/+v+R//wAAP+7/+3/7v+G//b/+f/u//f/5v/q//b/6v+4//z//v+x/9L/uP+7AAAAAAAA/93/5//0AAD/5P++AAD/tAAA/9UAAAAA/57/0QAA//r//P/1//L/8v+7//L//v/1//j/5gAFAAAAAP/s/8L/8v/z/9n/wP/3/6b/5gAA/+n/9/+w/+P/9f/j/9///f/J/9f/s//u/5YAAAAAAAD/0f/l//UAAAAA/5UAAP/9AAD/rwAAAAD/nP/2AAAAAP/0//H/4//iAAD/4v/3/+7/7P/k//3//v/5/+v/0f/m/+z/3wAA//n/6P/j//n/1f/0/+j/6//0/9n/2P/1AAD/3wAA/+n/8gAAAAAAAP+0/9IAAAAAAAL/xgAA/+gAAP/1AAAAAP/BAAAAAP/1/9T/7P/C/8H/kf/Q//n/wv/G/8n/3f/g/9n/1QAA/8L/xf/4/+z/w//+/7X/3f+1/8L/hP/c/+7/uP/l/9b/p//+//L/3//lAAAAAAAA/53/rwAAAAD/9P/WAAD/3AAA/4UAAAAA/3n/wQAAAAD/3P/6/+H/3P/9/+T/+f/n/93/6//h/9f/0//rAAD/4v/z//T//P/xAAD/6//Y/5r/7v/n/+7/+//G/+n/4wAF//v//v/l/+wAAAAAAAD/nf+WAAoAAP/+/+AAAP/oAAD/6AAAAAD/wf/wAAAACwAAAAAAEgAR//MAEQACAAAAAgAFAAD/+P/4AAD/mgARAAj/yP/2//7/jgAF//7/6v/+//L/7wAA//H/wAAKAAD/vf/n/8X/wwAAAAAAAP/j/+UAAAAA//n/qwAA/70AAP/jAAAAAP+u/+QAAP/4//P/8v/u/+z/9P/s//P/8v/y/+8AAP/+//n/5P+u/+7/9f/J//H/8f+m/+//+//e//D/5P/l//P/3v/O//UAAP/D//D/3f/UAAAAAAAA/7//2P/yAAD/+v+6AAD/3gAA/+YAAAAA/8H/8AAAAAAABf/3//7//v/O//4AAv/3//r/8gAA//v/+f/7/7///v/+/9P/0v/t/8j/8AAA//D/8P/F/+j/+P/r/8sACv/T/8//s//c/7EAAAAAAAD/5//qAAAAAAAA/5QAAP/SAAD/xAAAAAD/cP/bAAD/9P/I/+T/3//b//v/2v/R/+T/2//p/8v/pf+z/9z/cf/g/+7/jf/5/+//fP/p/7j/df/r/+T/4f/m/7//ev/UAAT/eP/8/yj/1AAAAAAAAP+V/zj/5AAA/6T/ugAA/4gAAP/mAAAAAP/B/+wAAP/+/8v/9QAA/4v/jf/LAAD/uwAA/83/yP+m/6b/2AAA/4r/iv/+//wAAAAF/4H/v/+A/4T/cv/n//b/tAAA/9L/oQAA//v/8P/zAAAAAAAA/2n/bQAAAAAAAP/iAAD/6AAA/4AAAAAA/27/pQAA//j/sv/n/8b/vwAA/8T/6//d/8n/2f/M/6P/qP/KAAD/2P/V//T//v/u//v/2f+q/17/6P/d/9r/6f+s/9X/wQAA//sAAP/E/+kAAAAAAAD/g/9e//gAAP/M/90AAP+8AAD/6gAAAAD/wf/+AAAABAAA//oABgAK/+MACgAA//oAAP/+//b/8v/z//v/kQAHAAP/wv/l/+z/iv/+//L/7P/1/97/6f/8/+3/sQAE//b/uP/L/7P/tgAAAAAAAP/u/+r/+gAA/9r/mgAA/7MAAP/YAAAAAP+d/9QAAP/k//D/3f/q/+n/p//p/+kAAP/h/9j/7v/r/+n/yf+M/+v/6f+1/5D/0f+A/9j/7v/k/+T/cv/M/9//1P+w//H/if+s/3X/tv+F/9j/2v/T/8r/3QAA/+X/7f93AAAAAP+A/5//tf+1AAD/wgAA/+3/5v/n/+f/6P/fAAD/7AAA/+MAAP/q/+f/4//i/+T/5v/t/9z/5//i/+f/4f/pAAD/5//X/+H/6AAA/9T/5v/z/97/2//Y/9b/6f/j/97/vP/IAAD/7//u/9EAAAAA/+cAAP/p//MAAP/WAAD/9//u//L/3v/aAAD/2//1//L/7v/iAAAAAAAA/+n/tv/j/+f/y//9//v/pv/iAAD/z//3/+z/6f/z/9P/z//vAAD/xwAA/+n/9wAAAAAAAP+b/83/8gAAAAD/wAAA//sAAP/5AAAAAP/BAAAAAP/1/+7/7//L/8b/oAAA//kAAP/kAAD//QAA//7/6v/m/8z/1f/l/+D/5P/3/8f//QAA/9//kP/i//P/zf/qAAD/qv/o/9L/9f/XAAAAAAAA/5z/yQAAAAAAAP+5AAAAAAAA/5sAAAAAAAD/4AAAAAD//v/3//f/+P+3//gAAP/3//v/7QANABMADf/z/8P/+P/6/+D/tf/7/6v/7QAN//H//f+W/+n/+P/r/+X//v+u/9r/rf/z/5cAAAAAAAD/zP/o//cAAAAA/5gAAP/+AAD/sAAAAAD/kv/0AAAAAP/4//n/8//u//f/7v/2//n/9P/2AAIAAAAA/+3/tv/z//r/0v/1AAD/q//2AAL/4wAA/+v/6v/7/9//2P/4AAL/zP/6/+T/2gAAAAAAAP/B/9j/+gAAAAD/vgAA/+0AAP/sAAAAAP/J//cAAP/i/8f/3P/e/9//5QAA/8wAAP/XAAD/x/+k/7D/3P9y/97/7P+E/+T/4f9y/+T/sgAA/+L/3P/WAAD/u/9y/9D/9/9y/+D/cv/J/9//3//f/7f/cgAA/9j/mP+vAAAAAP+c/9j/4P/vAAD/3QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/9r/8v/j/+wAAP/s/9wAAwAAAAAAAP/o/88ACP/8//7/7v/eAAD//v/+/7MAAAAA/9v/2QAAAAQAAAAAAAD/7//4/+z//P/+/+b//gAA/+n/7f/x//n/9//1//IAAP/7//0AAP/x//AAAP/x//j/3//v/90AAAAA/+D/3AAAAAAAAAAAAAD/3gAAAAAAAP/Y/9sAAAAAAAD/1QAAAAAAAP/aAAAAAAAA/+UAAP/u//j/8v/6//3/5f/9AAD/6P/s//D/9//2//X/8wAA//r/+QAA//D/7wAA//D/9v/d/+7/3AAA//T/3//cAAAAAAAAAAAAAP/cAAAAAAAA/9f/2gAAAAAAAP/UAAAAAAAA/9gAAAAAAAD/5AAAABUAHwAIACUAKQAAACkAHAACAAcAEgATABcAEgAMAAAAJQAcAAAAFwARAAMAEgAS//gAAAAAAAAACf/+AAAAHwAQAAAAAP/+//4AAAAAAAD/9f/2AAoAAAAQ/+8AAAAAAAD/9wAAAAD/wQAAAAAAAAAJ//kAAAAA/9QAAAAC//f//P/1AAD//P/9//3/zwAAAAD/1v/a/+//1//1AAD/8f/z/83/5v/6/+3/zwAO/9z/0/+9/+X/wgAA//3//P/o/+sAAAAFAAD/pP/uAAD/1//HAAD/+QAA/90AAP/l/+z/3//s/+3/xf/t/+n/3//i/9//6f/n/+T/3v+n/+z/6f+5/8j/2f+1/9//6P/V/+H/uv/O/+D/1f+2/+//0v+6/7L/v/+g/+f/4f/j/87/zwAA/+n/4/+KAAAAAP+1/7j/3v/cAAD/xwAA/+b/zP/h/7D/r/+F/7b/7P/E/8r/uv/i/+P/3//O/+v/sf+4/+X/3//J//L/q//i/6//wwAA/9T/4v+1/+H/zwAA/+v/2v/i/97/2P/O/4gAAP+qAAD/5P/0/9D/5AAA//L/g//f/+YAAP/DAAD/+//7//j//gAA/+cAAP/7//b/+P/1//b/+v/zAAD/1P/+//v/3//1/+7/6f/1//P/1f/w/+D/6v/4/+b/2P/7AAD/4P/g/+X/zwAAAAAAAP/h/9YAAAAA//7/swAA/+cAAP/VAAAAAP+c/94AAAAA//L/+P/w//L/tv/yAAD/2v/e/9X/6P/h/+P/4wAA//D/5v/6//f/ygAD/9X/5//e/9j/f//m//r/0v/u//X/nf/+//X/6//vAAAAAAAA/83/2gAAAAAAAP/eAAD/4QAA/6MAAAAA/yv/sgAA//cAAP/4AAIAAv/jAAL/+//v//T/9QAA//3/+//8//0AAgAA//b/8f/x//7/9QAA/+X/9//a/+f/+P/m/+cAAP/7//b/7//s/+UAAAAAAAD/3//gAAAAAAAD/9cAAP/sAAD/0gAAAAD/n//gAAAAAP/8//j/5//n/63/5wAA/+7/8v/fAAAAAAAA//D/2//o//D/6P/b//L/+v/fAAD/5v/z/3L/5v/5/9v/5f/9/53/5f/J//T/ygAAAAAAAP+7/+AAAAAAAAn/sAAA//kAAP+lAAAAAP8N/+gAAAAF//wAAAAAAAIAAAAC//oAAP/9//7//v/2//b/+v+3AAAAAP/JAAT//v/F//7/+v/lAAD/9//2AAD/6P/B//4AE//GAAD/0v/wAAAAAAAA/9v/3wAIAAD//v/KAAD/zQAA//cAAAAA/8EAAAAA//T/0P/s/7f/tv+C/87//P/D/7wAAP/Z/9z/1//WAAD/t/+3//7/8QAAAAD/qv/X/6z/uv9y/97/8/+0/+v/0/+aAAD/+//g/+oAAAAAAAD/kf+nAAUAAP/z/9wAAP/dAAD/fwAAAAD/Yv+9AAD//f+7//L/zv/KAAD/0f/7/+H/zP/f/87/u/+4/9QAAP/e/+D//v/8/+0AAP/d/8D/ev/q/+H/5//1/7f/5P/JAAAAAAAA/9X/7QAAAAAAAP+Z/3oABwAA/+D/6AAA/88AAP/oAAAAAP/B//0AAP/b/87/0/+w/6z/gAAA/90AAP/LAAD/7P/5/+3/0P+3/7H/u/+//7b/zP/H/67/7AAAAAAAAAAA/9UAAAAAAAD/df+//6MAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/zQAA/+D/7P/Z/+D/4P+a/+D/5gAA/90AAP/u/+v/5v/L/5D/4f/j/7T/e//P/1//0v/tAAD/4P9y/8j/2//N/7D/7f96/67/eP+2/2z/0P/S/8H/wP/ZAAD/4f/w/20AAAAA/2r/lf+4/7UAAP/GAAD/6//d/+T/sv+v/4QAAP/wAAD/2AAA/+//+v/u/93/3f+z/77/3//d/9n/8P+v/+8AAP/Q/3L/2f/l/77/4v/g/4j/4f/K/+f/2v/n/9P/hf+C/68AAP/0//v/uAAAAAD/8P+E/+v/8QAA/84AAP/l/7r/6P+5/7j/4gAA/+oAAP+6AAD/vf+3/67/xf/v/9f/yP/l/+T/0v/z/8b/tgAAAAAAAAAA/+oAAAAAAAD/8P/q/+wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/4QAA/+T/tP/o/7f/sf/i/8D/6f/J/7X/y/+7/8P/lv/F/+//1/++/+X/5P/S//P/vv+0/4b/z//J/9b/6v+d/97/u//w/+r/7P/Z//X/z//G/4z/dv97AAD/1//V/+D/3AAA//P/6f/S/+QAAP/hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/2P/x/+D/6gAA/+f/2P/+AAAAAAAA/+f/zwAHAAAAAv/l/9kAAAADAAD/sv/vAAD/6f/VAAcAAAAAAAAAAAAJ//z/8//o/+j/wv/pABH/8P/0/+EAAwAAAAD/8AAA/+j/7P/8//v/9QAE/+AAA//l//X/t//z//n/4AAA//3/zgAA//j/9//yAAAAAAAA/8n/4AAAAAAAAP/oAAD/8wAA/7kAAAAA/63/6wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/+L/7//d/+YAAP/n/9MAAAAAAAAAAP/S/9QAAAAAAAD/6v/fAAD//P/o/8z/2wAA//H/1QAA//kAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/0P/t/+X/4QAA/+X/yQAAAAAAAAAA/83/yQAEAAAABv/l/9oAAAAA/+7/wf/dAAD/5P/aAAAAAAAAAAAAAP/e/+j/1//t//D/t//w/+H/1//b/9L/1f/L/9H/2P9l/+7/2f+d/7X/vP9p/9L/zf/K/8n/t/++/9j/zgAA/+n/q/+R/5X/gv92/+X/1f/l/9f/yQAA/9T/mv9yAAAAAP9//63/3v+1AAD/kwAA//j/+P/0//z//v/m//7/+v/p/+3/8f/5//f/9f/z//L/+//9/+//+P/w//b/8f/4/98AAAAAAAD/9//g/+L/+v/5//P/6//l/+oAAAAAAAD/2P/bAAAAAP/2/9YAAAAAAAD/2gAAAAD/wf/lAAD/3//r/9r/6v/q/6b/6v/k/9r/3f/S/+f/5f/l/83/iP/r/+P/r/+V/8z/bf/S/+b/3f/d/3L/yP/b/8//qv/r/4f/p/92/6//e//Z/9P/2P/J/9oAAP/f/+T/eQAAAAD/cP+e/7z/rAAA/74AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/k//X/4v/tAAD/5f/mAAAAAAAAAAD/6//k//z/+//+/97/3wAAAAAAAv/a//gAAP/+/98AAAACAAAAAAAA/9v/l//W/5r/mf++/7b/2v+v/5n/xf+l/7T/lv+p/+//zf+g/9b/2f+2/+T/nf+d/3f/s/+t/9P/1/+J/9H/oP/F/+D/3/+4/+D/sv++/4z/cf95AAD/t/+0/+D/vgAA/+T/3v+0/8EAAP+2AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/r/+T/4QAAAAD/xwAAAAAAAAAA/7T/zwAAAAAAAP/c/8UAAAAAAAD/ygAAAAAAAP/TAAAAAAAAAAAAAAAA/+T/9P+1/7T/kP/OAAL/xv/J/7P/4v/g/9z/5wAA/7b/twAA//7/ywAG/6j/4f+u/8T/cv/r//j/wf/z/+f/ogAA//3/9P/1//H/6P+h/4r/qQAA//sAAP/m//YAAAAG/4v/9f/9AAD/wwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/+H/8v/g/+wAAP/s/9wAAAAAAAAAAP/o/9AADAAAAAL/7f/gAAAABAAA/7P/7QAA/+7/1wAKAAUAAAAAAAD/6f/M/+T/t/+2/4T/yf/w/8H/vf/K/9T/2f/S/8v/+v+3/7f/6//l/7v/9v+q/9T/q/+5/3X/2f/l/7D/4f/O/5X/8f/e/9n/7v/T/9H/of+R/6UAAP/d/+n/6P/bAAD/9v93/9T/2QAA/7oAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/b//T/4v/uAAD/7P/dAAAAAAAAAAD/6//UAAsAAAAC/+r/3AAAAAcAAP+3//MAAP/x/9gADAAGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/+H//v/0//kAAP/l/+P//gAAAAAAAP/z/+oAAP/+AAD/xP/bAAAADQAI/8cAAAAA//j/9QAAAAoAAAAAAAD/wf94AAD/n/+W/8H/lf+K/8H/pP+v/7n/1v+c/4//Y//8/6b/ef/B/8H/bv+v/48AAAAAAAAAAP/BAAAAAAAA/8f/Yv/BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/8EAAP/6//z/9f/y//L/u//yAAD/9f/4/+YABQAAAAD/7AAA//L/8wAA/8D/9wAA/+YAAP/p//f/sAAA//X/4//fAAAAAAAAAAAAAP+WAAAAAAAA/9H/5QAAAAAAAP+VAAAAAAAA/68AAAAAAAD/9gAA/+3/4//l/9j/1f/7/9T/5//l/+P/2P/8AAD//v/e/7H/3v/f/8b/7v/v/6X/2P/8/8n/6v/e/93/5v/M/8n/5AAA/8P//f/V/+EAAAAAAAD/mv/F/+UAAP/+/7gAAP/rAAD/5AAAAAD/wf/7AAIAEwABAAoAAAAOABEACgAUACkADgArACwAJAAuADEAJgAzADQAKgA2ADYALAA4ADwALQA+AFkAMgBcAF0ATgBgAGIAUABkAGQAUwBmAGYAVABoAGsAVQBtAG0AWQBvAHEAWgB1AHUAXQB3AHcAXgB7AH0AXwABAAEAfQADAAMAKgALAAsAFwABACsADAAMAAAAAAAAAAQALAAaABgAAAAAAAgACAAtAC4AEgANAA0ADQAZAAUABQAFAC8AEwAwAA4AFAAGAAYAGwAQABAAAAAPADcAAAAAAAkAOwAAAAAAJgAHAAAAHgAAAAkACQAKAAoAGwAAACAAFQAVABUAIQAAAAAAAAACABEARwACABYAJAAlACQAJQBGACcAPQBEAEMAOQA4AEEAQAA2ACcAAAAAACIAIgAAAAAAHQAfADMAAABCAAAAOgAAAEUAPgAoADQAAAA1AAAAKQApADwAAAAAAAAAIwAAABwAAAAAAAAAMgAxAD8AAQABAH0ABgAGAAEAAgACAAAAAAAAAAIAAgAAAAAAAAABACEAAAAAAAAAAAACAAIAAAACAAEADwAPAA8AFgAIAAgACAAiABMAIwAQABQAFwALAAAABQAFAAQABQAMABEAEQAAAB0ACQArAAMAAwAAAAAAAAAAAAAABQAHAAAABAAAABIAEgASABgACgAKAAoADQAOADYADQAVAAwADAAMAAwADgAgAC0ANAAzACgAJwAgADEAJgAsAAAAKgAbABsAGgAaABwAMAAkAAAAMgAAACkAAAA1AB4ALgAAAAAAAAAlAB8AHwAAAAAAAAAAAAAAAAAZAAAAAAAAAAAAAAAvAAAAAQAAAAoAmAD6AAJERkxUAA5sYXRuABIAMgAAAC4AB0FaRSAANkNSVCAAQEtBWiAASk1PTCAAVFJPTSAAXlRBVCAAaFRSSyAAcgAA//8AAQAAAAD//wACAAAAAQAA//8AAgAAAAIAAP//AAIAAAADAAD//wACAAAABAAA//8AAgAAAAUAAP//AAIAAAAGAAD//wACAAAABwAIbGlnYQAybG9jbAA4bG9jbAA+bG9jbABEbG9jbABKbG9jbABQbG9jbABWbG9jbABcAAAAAQAHAAAAAQAAAAAAAQABAAAAAQACAAAAAQAGAAAAAQAFAAAAAQADAAAAAQAEAAgAEgASABIAEgASACYAJgA8AAEAAAABAAgAAQAGAAMAAQABADAAAQAAAAEACAABAAYAAQABAAIAGgBAAAQACAABAAgAAQBUAAQADgA0AEAASgAEAAoAEgAaACAASwADACwAMABMAAMALAA3AE0AAgAwAE4AAgA3AAEABABPAAMARwBHAAEABABbAAIAeQABAAQAcQACAGYAAQAEACwARwBmAHoAAAABAAEACAADAAAAFAADAAAALAACd2R0aAEMAAB3Z2h0AQ0AAWl0YWwBFQACAAYAEgAeAAEAAAACARQAZAAAAAEAAQAAARECvAAAAAMAAgACARYAAAAAAAEAAAAA";
+  let pdfFontsReady = false;
+  function ensurePdfFonts(doc) {
+    if(!pdfFontsReady) {
+      doc.addFileToVFS('InstrumentSans-Regular.ttf', PDF_FONT_REGULAR);
+      doc.addFont('InstrumentSans-Regular.ttf', 'InstrumentSans', 'normal');
+      doc.addFileToVFS('InstrumentSans-Bold.ttf', PDF_FONT_BOLD);
+      doc.addFont('InstrumentSans-Bold.ttf', 'InstrumentSans', 'bold');
+    }
+    doc.setFont('InstrumentSans', 'normal');
+  }
+  function moneyPDF(v) { return `${v.toFixed(2)} TL`; }
+
+  // --- 11. FATURA / TEKLİF PDF ---
+  let invoiceSaleId = null; let invoiceType = 'teklif';
+  function setInvoiceType(type, el) {
+    invoiceType = type;
+    document.querySelectorAll('[data-inv]').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    updateInvoiceSummary();
+  }
+  function openInvoiceModal(saleId) {
+    invoiceSaleId = saleId;
+    const s = sales.find(x => x.id === saleId); if(!s) return;
+    document.getElementById('invNo').value = `${new Date().getFullYear()}-${String(saleId).slice(-4)}`;
+    document.getElementById('invVat').value = 0;
+    updateInvoiceSummary();
+    document.getElementById('invoiceModal').classList.remove('hidden'); requestAnimationFrame(()=>document.getElementById('invoiceModal').classList.remove('opacity-0'));
+  }
+  function closeInvoiceModal() { document.getElementById('invoiceModal').classList.add('opacity-0'); setTimeout(()=>document.getElementById('invoiceModal').classList.add('hidden'), 300); }
+  document.getElementById('invVat')?.addEventListener('input', updateInvoiceSummary);
+  function updateInvoiceSummary() {
+    const s = sales.find(x => x.id === invoiceSaleId); if(!s) return;
+    const vat = parseFloat(document.getElementById('invVat').value) || 0;
+    const vatAmount = s.actualPrice * (vat/100); const total = s.actualPrice + vatAmount;
+    document.getElementById('invSummary').innerHTML = `
+      <div class="flex justify-between"><span>${s.name}</span><span class="font-num">${money(s.actualPrice)}</span></div>
+      <div class="flex justify-between"><span>KDV (%${vat})</span><span class="font-num">${money(vatAmount)}</span></div>
+      <div class="flex justify-between font-bold text-white pt-1 border-t border-line mt-1"><span>Toplam</span><span class="font-num">${money(total)}</span></div>`;
+  }
+  function generateInvoicePDF() {
+    const s = sales.find(x => x.id === invoiceSaleId); if(!s) return;
+    const biz = bizInfoCache || {};
+    const vat = parseFloat(document.getElementById('invVat').value) || 0;
+    const vatAmount = s.actualPrice * (vat/100); const total = s.actualPrice + vatAmount;
+    const docNo = document.getElementById('invNo').value || '-';
+    const title = invoiceType === 'fatura' ? 'FATURA' : 'TEKLİF';
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    ensurePdfFonts(doc);
+
+    const GREEN = [22, 163, 74];   // yazdırılabilir koyu yeşil (neon yeşil kağıtta okunaksız kalır)
+    const INK = [23, 28, 25];
+    const GRAY = [110, 118, 112];
+    const LIGHT = [243, 246, 244];
+    const LINE = [225, 230, 226];
+
+    // ── ÜST BANT ──
+    doc.setFillColor(...GREEN);
+    doc.rect(0, 0, 210, 34, 'F');
+    doc.setFont('InstrumentSans','bold'); doc.setFontSize(18); doc.setTextColor(255,255,255);
+    doc.text('PrintDefteri', 15, 15);
+    doc.setFont('InstrumentSans','normal'); doc.setFontSize(8.5); doc.setTextColor(235,250,240);
+    doc.text('Üretim ve Sipariş Yönetimi', 15, 21);
+
+    doc.setFont('InstrumentSans','bold'); doc.setFontSize(16); doc.setTextColor(255,255,255);
+    doc.text(title, 195, 15, { align: 'right' });
+    doc.setFont('InstrumentSans','normal'); doc.setFontSize(9); doc.setTextColor(235,250,240);
+    doc.text(`No: ${docNo}`, 195, 22, { align: 'right' });
+    doc.text(`Tarih: ${new Date().toLocaleDateString('tr-TR')}`, 195, 27, { align: 'right' });
+
+    // ── GÖNDEREN / ALICI ──
+    let y = 46;
+    doc.setFont('InstrumentSans','bold'); doc.setFontSize(8); doc.setTextColor(...GRAY);
+    doc.text('GÖNDEREN', 15, y);
+    doc.text('ALICI', 110, y);
+    y += 6;
+
+    doc.setFont('InstrumentSans','bold'); doc.setFontSize(11); doc.setTextColor(...INK);
+    doc.text(biz.name || 'İşletme Adı', 15, y);
+    doc.setFont('InstrumentSans','bold'); doc.setFontSize(11);
+    doc.text(s.cust, 110, y);
+
+    doc.setFont('InstrumentSans','normal'); doc.setFontSize(9); doc.setTextColor(...GRAY);
+    let yL = y + 6, yR = y + 6;
+    if(biz.phone) { doc.text(`Tel: ${biz.phone}`, 15, yL); yL += 5; }
+    if(biz.email) { doc.text(biz.email, 15, yL); yL += 5; }
+    if(biz.address) { const lines = doc.splitTextToSize(biz.address, 80); doc.text(lines, 15, yL); yL += lines.length * 4.5; }
+
+    let ty = Math.max(yL, yR, y + 16) + 8;
+
+    // ── ÜRÜN TABLOSU ──
+    doc.setFillColor(...LIGHT);
+    doc.roundedRect(15, ty - 6, 180, 10, 1.5, 1.5, 'F');
+    doc.setFont('InstrumentSans','bold'); doc.setFontSize(8.5); doc.setTextColor(...INK);
+    doc.text('ÜRÜN / HİZMET', 19, ty);
+    doc.text('TUTAR', 191, ty, { align: 'right' });
+    ty += 11;
+
+    doc.setFont('InstrumentSans','normal'); doc.setFontSize(10); doc.setTextColor(...INK);
+    doc.text(s.name, 19, ty);
+    doc.text(moneyPDF(s.actualPrice), 191, ty, { align: 'right' });
+    ty += 6;
+
+    if(s.note) {
+      doc.setFont('InstrumentSans','normal'); doc.setFontSize(8); doc.setTextColor(...GRAY);
+      const noteLines = doc.splitTextToSize(`Not: ${s.note}`, 150);
+      doc.text(noteLines, 19, ty);
+      ty += noteLines.length * 4 + 2;
+    }
+
+    ty += 4;
+    doc.setDrawColor(...LINE); doc.line(15, ty, 195, ty);
+    ty += 8;
+
+    // ── TOPLAMLAR ──
+    doc.setFont('InstrumentSans','normal'); doc.setFontSize(9.5); doc.setTextColor(...GRAY);
+    doc.text('Ara Toplam', 140, ty); doc.text(moneyPDF(s.actualPrice), 191, ty, { align: 'right' }); ty += 6;
+    doc.text(`KDV (%${vat})`, 140, ty); doc.text(moneyPDF(vatAmount), 191, ty, { align: 'right' }); ty += 9;
+
+    doc.setFillColor(...LIGHT);
+    doc.roundedRect(132, ty - 6, 63, 11, 1.5, 1.5, 'F');
+    doc.setFont('InstrumentSans','bold'); doc.setFontSize(12); doc.setTextColor(...GREEN);
+    doc.text('TOPLAM', 138, ty + 1.5);
+    doc.text(moneyPDF(total), 191, ty + 1.5, { align: 'right' });
+    ty += 20;
+
+    if(biz.iban) {
+      doc.setFont('InstrumentSans','normal'); doc.setFontSize(8.5); doc.setTextColor(...GRAY);
+      doc.text(`IBAN: ${biz.iban}`, 15, ty);
+    }
+
+    // ── ALT BİLGİ ──
+    doc.setDrawColor(...LINE); doc.line(15, 282, 195, 282);
+    doc.setFont('InstrumentSans','normal'); doc.setFontSize(7.5); doc.setTextColor(...GRAY);
+    doc.text('PrintDefteri ile oluşturulmuştur.', 15, 288);
+    doc.text(invoiceType === 'fatura' ? 'Bu belge resmi bir fatura yerine geçmez.' : 'Bu belge bir fiyat teklifidir.', 195, 288, { align: 'right' });
+
+    doc.save(`${title}_${docNo}_${s.cust.replace(/\s/g,'_')}.pdf`);
+    closeInvoiceModal();
+    toast(`${title} indirildi.`);
+  }
+
+  // --- 12. MÜŞTERİ TAKİP LİNKİ ---
+  // Not: Bu bir sunucu değil - sipariş bilgisi doğrudan linkin içine kodlanır.
+  // Bu yüzden durumu güncelledikten sonra linki tekrar paylaşman gerekir; link "canlı" değil, oluşturulduğu andaki durumu gösterir.
+  function copyTrackLink(saleId) {
+    const s = sales.find(x => x.id === saleId); if(!s) return;
+    const payload = { cust: s.cust, name: s.name, status: s.status, date: s.date, dueDate: s.dueDate, price: s.actualPrice, note: s.note };
+    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    const url = `${location.origin}${location.pathname}?track=${encoded}`;
+    navigator.clipboard.writeText(url).then(() => {
+      toast('Takip linki kopyalandı. Durum güncellenince yeniden kopyalayıp gönder.');
+    }).catch(() => {
+      prompt('Linki kopyalamak için seç ve kopyala:', url);
+    });
+  }
+
+  function renderTrackPage(payload) {
+    document.body.innerHTML = '';
+    document.body.className = document.body.classList.contains('light') ? 'light' : '';
+    document.body.style.overflow = 'auto';
+    let statusColor = payload.status === 'Tamamlandı' ? '#39ff8a' : (payload.status === 'Basılıyor' ? '#38bdf8' : '#ffb020');
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'min-height:100vh; display:flex; align-items:center; justify-content:center; padding:1.5rem; font-family:Inter,sans-serif; background:#0a0f0c;';
+    wrap.innerHTML = `
+      <div style="max-width:420px; width:100%; background:#131a16; border:1px solid #1e2820; border-radius:1.2rem; padding:2rem; box-shadow:0 20px 40px -20px rgba(0,0,0,0.6);">
+        <p style="color:#39ff8a; font-family:'JetBrains Mono',monospace; font-size:0.7rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:0.75rem;">PrintDefteri Sipariş Takibi</p>
+        <h1 style="color:#fff; font-size:1.4rem; font-weight:700; margin-bottom:0.25rem;">${payload.name}</h1>
+        <p style="color:#8b9c93; font-size:0.85rem; margin-bottom:1.5rem;">Sayın ${payload.cust}, siparişinizin son durumu:</p>
+        <div style="display:inline-flex; align-items:center; gap:0.5rem; background:${statusColor}22; border:1px solid ${statusColor}55; color:${statusColor}; font-weight:700; padding:0.5rem 1rem; border-radius:999px; margin-bottom:1.5rem;">
+          <span style="width:8px;height:8px;border-radius:50%;background:${statusColor};"></span> ${payload.status}
+        </div>
+        <div style="border-top:1px solid #1e2820; padding-top:1rem; font-size:0.85rem; color:#c3d1c9; display:flex; flex-direction:column; gap:0.6rem;">
+          <div style="display:flex; justify-content:space-between;"><span style="color:#7c9385;">Sipariş Tarihi</span><span>${payload.date}</span></div>
+          ${payload.dueDate ? `<div style="display:flex; justify-content:space-between;"><span style="color:#7c9385;">Teslim Tarihi</span><span>${new Date(payload.dueDate).toLocaleDateString('tr-TR')}</span></div>` : ''}
+          <div style="display:flex; justify-content:space-between;"><span style="color:#7c9385;">Tutar</span><span style="font-family:'JetBrains Mono',monospace; font-weight:700; color:#fff;">₺${payload.price.toFixed(2)}</span></div>
+          ${payload.note ? `<div style="color:#7c9385; font-size:0.8rem; margin-top:0.4rem;">Not: ${payload.note}</div>` : ''}
+        </div>
+        <p style="color:#566259; font-size:0.7rem; margin-top:1.5rem; text-align:center;">Bu durum, linkin size gönderildiği andaki bilgiyi gösterir.</p>
+      </div>`;
+    document.body.appendChild(wrap);
+  }
+
+  // --- 13. TESLİM TARİHİ UYARILARI (sayfa açılışında) ---
+  function checkDueDateAlerts() {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const urgent = sales.filter(s => s.status !== 'Tamamlandı' && s.dueDate && (new Date(s.dueDate) - today) <= 86400000);
+    if(urgent.length > 0) {
+      const overdue = urgent.filter(s => new Date(s.dueDate) < today);
+      if(overdue.length > 0) toast(`${overdue.length} sipariş teslim tarihini geçti!`, 'err');
+      else toast(`${urgent.length} sipariş yarına/bugüne teslim edilecek.`, 'ok');
+    }
+  }
+
+  // --- 14. ANALİZ ---
+  function renderAnalytics() {
+    // Filament bazında kâr
+    const filHost = document.getElementById('filamentAnalytics');
+    const byFil = {};
+    sales.forEach(s => {
+      const d = designs.find(x => x.name === s.name);
+      const filId = d ? d.dFil : null;
+      const fil = filaments.find(f => f.id == filId);
+      const key = fil ? fil.name : 'Bilinmeyen/Silinmiş';
+      if(!byFil[key]) byFil[key] = { name: key, profit: 0, count: 0 };
+      byFil[key].profit += s.profit; byFil[key].count++;
+    });
+    const filList = Object.values(byFil).sort((a,b)=>b.profit-a.profit);
+    document.getElementById('filamentAnalyticsEmpty').classList.toggle('hidden', filList.length !== 0);
+    if(filList.length > 0) {
+      const maxP = Math.max(...filList.map(f=>f.profit), 1);
+      filHost.innerHTML = filList.map(f => `
+        <div>
+          <div class="flex items-center justify-between text-xs mb-1"><span class="font-semibold text-gray-300 truncate">${f.name}</span><span class="text-mint font-num font-bold shrink-0 ml-2">${money(f.profit)}</span></div>
+          <div class="w-full bg-ink rounded-full h-1.5"><div class="bg-mint h-1.5 rounded-full" style="width:${(f.profit/maxP)*100}%"></div></div>
+        </div>`).join('');
+    } else filHost.innerHTML = '';
+
+    // Makine verimliliği
+    const prinHost = document.getElementById('printerAnalytics');
+    document.getElementById('printerAnalyticsEmpty').classList.toggle('hidden', printers.length !== 0);
+    if(printers.length > 0) {
+      prinHost.innerHTML = printers.map(p => {
+        const usagePct = Math.min(100, (p.hours / 300) * 100);
+        const barColor = p.hours > 300 ? 'bg-rose' : 'bg-spool';
+        return `<div>
+          <div class="flex items-center justify-between text-xs mb-1"><span class="font-semibold text-gray-300 truncate">${p.name}</span><span class="text-gray-400 font-num shrink-0 ml-2">${p.hours.toFixed(1)} sa</span></div>
+          <div class="w-full bg-ink rounded-full h-1.5"><div class="${barColor} h-1.5 rounded-full" style="width:${usagePct}%"></div></div>
+        </div>`;
+      }).join('');
+    } else prinHost.innerHTML = '';
+
+    // Saatlik özet
+    let totalHours = 0; sales.forEach(s => { const d = designs.find(x=>x.name===s.name); if(d) totalHours += d.time/3600; });
+    const totalProfit = sales.reduce((a,s)=>a+s.profit, 0);
+    document.getElementById('an-total-hours').textContent = `${totalHours.toFixed(1)} sa`;
+    document.getElementById('an-profit-per-hour').textContent = money(totalHours > 0 ? totalProfit/totalHours : 0);
+
+    const byDesignProfit = {};
+    sales.forEach(s => { if(!byDesignProfit[s.name]) byDesignProfit[s.name] = 0; byDesignProfit[s.name] += s.profit; });
+    const bestDesign = Object.entries(byDesignProfit).sort((a,b)=>b[1]-a[1])[0];
+    document.getElementById('an-best-design').textContent = bestDesign ? bestDesign[0] : '-';
+  }
+  const _origSwitchView = switchView;
+  switchView = function(view) { _origSwitchView(view); if(view === 'analytics') renderAnalytics(); };
+
+  // --- 15. BİLDİRİM ÇANI --- (notifsCache, loadAllData() içinde doldurulur)
+  async function pushNotif(text, icon) {
+    const { data, error } = await sb.from('notifs').insert({ text, icon: icon || '🔔', time: Date.now(), read: false }).select().single();
+    if(error) return;
+    notifsCache.unshift(data);
+    notifsCache = notifsCache.slice(0, 30);
+    renderNotifs();
+  }
+  function renderNotifs() {
+    const notifs = notifsCache;
+    const list = document.getElementById('notifList');
+    const dot = document.getElementById('notifDot');
+    if(!list) return;
+    dot.classList.toggle('hidden', notifs.filter(n=>!n.read).length === 0);
+    if(notifs.length === 0) { list.innerHTML = `<p class="text-center text-xs text-gray-600 py-10">Henüz bildirim yok.</p>`; return; }
+    list.innerHTML = notifs.map(n => {
+      const mins = Math.round((Date.now() - Number(n.time)) / 60000);
+      const timeStr = mins < 1 ? 'şimdi' : mins < 60 ? `${mins} dk önce` : mins < 1440 ? `${Math.round(mins/60)} sa önce` : `${Math.round(mins/1440)} gün önce`;
+      return `<div class="p-3 flex items-start gap-3 hover:bg-panel2/60 transition-colors">
+        <span class="text-lg leading-none mt-0.5">${n.icon}</span>
+        <div class="flex-1 min-w-0"><p class="text-xs text-gray-300 leading-snug">${n.text}</p><p class="text-[10px] text-gray-600 font-mono mt-1">${timeStr}</p></div>
+      </div>`;
+    }).join('');
+  }
+  async function toggleNotifPanel() {
+    const panel = document.getElementById('notifPanel');
+    panel.classList.toggle('hidden');
+    if(!panel.classList.contains('hidden')) {
+      const unreadIds = notifsCache.filter(n=>!n.read).map(n=>n.id);
+      notifsCache = notifsCache.map(n => ({...n, read: true}));
+      document.getElementById('notifDot').classList.add('hidden');
+      if(unreadIds.length) await sb.from('notifs').update({ read: true }).in('id', unreadIds);
+    }
+  }
+  async function clearNotifs() {
+    const ids = notifsCache.map(n=>n.id);
+    notifsCache = []; renderNotifs();
+    if(ids.length) await sb.from('notifs').delete().in('id', ids);
+  }
+  document.addEventListener('click', e => {
+    const panel = document.getElementById('notifPanel');
+    if(panel && !panel.classList.contains('hidden') && !e.target.closest('#notifPanel') && !e.target.closest('[onclick="toggleNotifPanel()"]')) panel.classList.add('hidden');
+  });
+
+  // --- 16. SİPARİŞ DETAY MODALI ---
+  let currentDetailSaleId = null;
+  function openSaleDetail(id) {
+    const s = sales.find(x => x.id === id); if(!s) return;
+    currentDetailSaleId = id;
+    document.getElementById('sdName').textContent = s.name;
+    document.getElementById('sdCust').textContent = s.cust;
+    document.getElementById('sdDate').textContent = s.date;
+    document.getElementById('sdCost').textContent = money(s.baseCost);
+    document.getElementById('sdPrice').textContent = money(s.actualPrice);
+    document.getElementById('sdProfit').textContent = money(s.profit);
+
+    const dueEl = document.getElementById('sdDue');
+    if(s.dueDate) {
+      const due = new Date(s.dueDate); const today = new Date(); today.setHours(0,0,0,0);
+      const overdue = s.status !== 'Tamamlandı' && due < today;
+      dueEl.textContent = due.toLocaleDateString('tr-TR');
+      dueEl.className = `font-bold text-sm font-num ${overdue ? 'text-rose' : 'text-white'}`;
+    } else { dueEl.textContent = '-'; dueEl.className = 'font-bold text-sm font-num text-gray-500'; }
+
+    let statusClasses = s.status === 'Tamamlandı' ? 'bg-mint/15 text-mint border-mint/30' : (s.status === 'Basılıyor' ? 'bg-spool/15 text-spool border-spool/30' : 'bg-amber/15 text-amber border-amber/30');
+    document.getElementById('sdStatusBig').innerHTML = `<span class="px-3 py-1.5 rounded-full font-bold text-sm border ${statusClasses}">${s.status}</span>`;
+
+    const noteWrap = document.getElementById('sdNoteWrap');
+    if(s.note) { noteWrap.classList.remove('hidden'); document.getElementById('sdNote').textContent = s.note; }
+    else noteWrap.classList.add('hidden');
+
+    document.getElementById('sdBtnInvoice').onclick = () => { closeSaleDetail(); openInvoiceModal(id); };
+    document.getElementById('sdBtnTrack').onclick = () => copyTrackLink(id);
+    document.getElementById('sdBtnDelete').onclick = () => { closeSaleDetail(); delSale(id); };
+
+    document.getElementById('saleDetailModal').classList.remove('hidden');
+    requestAnimationFrame(()=>document.getElementById('saleDetailModal').classList.remove('opacity-0'));
+  }
+  function closeSaleDetail() { document.getElementById('saleDetailModal').classList.add('opacity-0'); setTimeout(()=>document.getElementById('saleDetailModal').classList.add('hidden'), 300); }
+
+  // Bildirimleri asıl olaylara bağlıyoruz (mevcut fonksiyonları sarmalayarak)
+  const _origConfirmSale = confirmSale;
+  confirmSale = async function() {
+    const did = document.getElementById('saleDesignSelect').value;
+    const d = designs.find(x=>x.id==did);
+    await _origConfirmSale();
+    if(d) pushNotif(`Yeni sipariş oluşturuldu: <strong>${d.name}</strong>`, '🧾');
+  };
+  const _origAddFilament = addFilament;
+  addFilament = async function() {
+    const n = document.getElementById('invFilName').value;
+    await _origAddFilament();
+    if(n) pushNotif(`Depoya filament eklendi: <strong>${n}</strong>`, '📦');
+  };
+
+  // --- 17. AÇILIŞ YÜKLEME EKRANI ---
+  function runWelcomeSequence() {
+    const bar = document.getElementById('welcomeBar');
+    const sub = document.getElementById('welcomeSub');
+    const screen = document.getElementById('welcomeScreen');
+    const steps = [
+      { pct: 30, txt: 'Depo ve filament verileri okunuyor...' },
+      { pct: 60, txt: 'Sipariş geçmişi hazırlanıyor...' },
+      { pct: 90, txt: 'Panel oluşturuluyor...' },
+      { pct: 100, txt: 'Hazır.' },
+    ];
+    let i = 0;
+    return new Promise(resolve => {
+      const tick = () => {
+        if(i >= steps.length) {
+          setTimeout(() => {
+            screen.style.opacity = '0';
+            setTimeout(() => { screen.remove(); resolve(); }, 500);
+          }, 250);
+          return;
+        }
+        bar.style.width = steps[i].pct + '%';
+        sub.textContent = steps[i].txt;
+        i++;
+        setTimeout(tick, 280);
+      };
+      tick();
+    });
+  }
+
+  // --- 18. KİMLİK DOĞRULAMA (Supabase Auth) ---
+  let authMode = 'login';
+  function setAuthTab(mode) {
+    authMode = mode;
+    document.getElementById('authTabLogin').classList.toggle('active', mode==='login');
+    document.getElementById('authTabSignup').classList.toggle('active', mode==='signup');
+    document.getElementById('authSubmitBtn').textContent = mode==='login' ? 'Giriş Yap' : 'Kayıt Ol';
+    document.getElementById('authHint').classList.toggle('hidden', mode!=='signup');
+    document.getElementById('authError').classList.add('hidden');
+  }
+
+  function showAuthError(msg) {
+    const el = document.getElementById('authError');
+    el.textContent = msg; el.classList.remove('hidden');
+  }
+
+  async function submitAuth() {
+    const email = document.getElementById('authEmail').value.trim();
+    const password = document.getElementById('authPassword').value;
+    if(!email || !password) return showAuthError('E-posta ve şifre gerekli.');
+    if(password.length < 6) return showAuthError('Şifre en az 6 karakter olmalı.');
+
+    document.getElementById('authSubmitBtn').disabled = true;
+    document.getElementById('authError').classList.add('hidden');
+
+    if(authMode === 'login') {
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
+      document.getElementById('authSubmitBtn').disabled = false;
+      if(error) return showAuthError(error.message === 'Invalid login credentials' ? 'E-posta veya şifre hatalı.' : error.message);
+      await onAuthenticated(data.user);
+    } else {
+      const { data, error } = await sb.auth.signUp({ email, password });
+      document.getElementById('authSubmitBtn').disabled = false;
+      if(error) return showAuthError(error.message);
+      if(data.session) { await onAuthenticated(data.user); }
+      else { toast('Kayıt başarılı! E-postana gelen linke tıklayıp giriş yapabilirsin.'); setAuthTab('login'); }
+    }
+  }
+
+  async function signOut() {
+    await sb.auth.signOut();
+    location.reload();
+  }
+
+  async function onAuthenticated(user) {
+    currentUser = user;
+    document.getElementById('authScreen').style.display = 'none';
+    document.getElementById('welcomeScreen').classList.remove('hidden');
+
+    const initials = (user.email || '?').slice(0,2).toUpperCase();
+    document.getElementById('headerAvatar').textContent = initials;
+    document.getElementById('acctAvatar').textContent = initials;
+    document.getElementById('acctEmail').textContent = user.email;
+
+    await Promise.all([loadAllData(), loadBizInfo(), runWelcomeSequence()]);
+
+    updatePieChart(1,0,0,0,0);
+    document.getElementById('rangeBtn-7')?.classList.add('active');
+    renderNotifs();
+    switchView('home');
+    checkDueDateAlerts();
+  }
+
+  // INIT
+  (async function initApp() {
+    const urlParams = new URLSearchParams(location.search);
+    if(urlParams.has('track')) {
+      document.getElementById('authScreen').style.display = 'none';
+      document.getElementById('welcomeScreen').remove();
+      try {
+        const payload = JSON.parse(decodeURIComponent(escape(atob(urlParams.get('track')))));
+        renderTrackPage(payload);
+      } catch(e) { /* bozuk link */ }
+      return;
+    }
+
+    // Zaten oturum açık mı kontrol et (sayfa yenilendiğinde tekrar giriş istememek için)
+    const { data: { session } } = await sb.auth.getSession();
+    if(session?.user) {
+      await onAuthenticated(session.user);
+    } else {
+      document.getElementById('welcomeScreen').remove();
+    }
+  })();
+</script>
+
+</body>
+</html>
